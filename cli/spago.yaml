@@ -1,0 +1,23 @@
+# Quartermaster's CLI + effectful edges: read the deployment sources (the SAME
+# compose/registry Bosun reads, via the path-imported bosun-adapters), probe the
+# host's capabilities, render the verify report. The no-Aff seam, like Bosun:
+# straight-line synchronous shell probes at the edge, the pure core untouched.
+package:
+  name: quartermaster-cli
+  description: "The `quartermaster` CLI: ingest → derive requirements → probe host → verify report."
+  dependencies:
+    - prelude
+    - effect
+    - console
+    - arrays
+    - maybe
+    - either
+    - strings
+    - tuples
+    - argonaut-core
+    - foreign-object
+    - quartermaster-core
+    - bosun-core
+    - bosun-adapters
+  run:
+    main: Quartermaster.CLI.Main

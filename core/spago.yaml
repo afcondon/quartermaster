@@ -1,0 +1,17 @@
+# Quartermaster's pure core: the runtime/capability model + the verify report.
+# No FFI, no Effect — the part that runs identically on node and backend-go.
+# Shares Bosun's deployment vocabulary (atoms, executor, artifact, target) via
+# the path-imported bosun-core.
+package:
+  name: quartermaster-core
+  description: "Pure provisioning model: runtimes, host-capability requirements, the verify report."
+  dependencies:
+    - prelude
+    - maybe
+    - either
+    - tuples
+    - arrays
+    - ordered-collections
+    - foldable-traversable
+    - strings
+    - bosun-core

@@ -1,0 +1,15 @@
+{
+  "name": "quartermaster",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The provisioning companion to Bosun — host pre-flight (verify) and build/ship.",
+  "scripts": {
+    "build": "spago build",
+    "test": "spago test",
+    "quartermaster": "spago run -p quartermaster-cli"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  }
+}

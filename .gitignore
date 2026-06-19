@@ -1,0 +1,4 @@
+output/
+.spago/
+node_modules/
+*.log

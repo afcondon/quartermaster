@@ -1,0 +1,18 @@
+# Quartermaster workspace root (Marginalia #238) — the PROVISIONING companion to
+# Bosun (#227). Where Bosun runs/observes/controls what's aboard, Quartermaster
+# stocks the ship: host-capability pre-flight (`quartermaster verify`), and
+# (next) build+ship of artifacts. The seam is documented at
+# ShapedSteer/bosun/docs/PROVISIONING-SEAM.md; the shared vocabulary (the artifact
+# model + Target/host identity + the ingest adapters) is path-imported from the
+# Bosun workspace next door rather than duplicated.
+#
+# Same ethos as Bosun: typed model, pure core, thin effectful edge, develop on
+# node, with purescript-go (backend-go) as a Node-free native column.
+workspace:
+  packageSet:
+    registry: 77.5.0
+  extraPackages:
+    bosun-core:
+      path: ../bosun/core
+    bosun-adapters:
+      path: ../bosun/adapters
