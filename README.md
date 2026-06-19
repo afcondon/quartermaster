@@ -67,8 +67,21 @@ node cli/run.js verify <compose> <registry>
 
 # …or Node-free, via the backend-go native binary (rebuilds when sources change):
 scripts/gnomon-quartermaster.sh verify <compose> <registry>
-scripts/qm-conformance.sh        # assert node ≡ gnomon, byte-for-byte
+scripts/qm-conformance.sh        # assert node ≡ gnomon, byte-for-byte (static fixtures)
+scripts/qm-menagerie.sh          # behavioural dual-runtime tests (flip host conditions)
 ```
+
+Two dual-runtime test harnesses, both run node CLI vs the gnomon binary:
+
+- **`qm-conformance.sh`** — static byte-diff over committed fixtures (both verbs,
+  all host shapes). Proves the output is identical for a *fixed* host state.
+- **`qm-menagerie.sh`** — the behavioural rig (see [`docs/MENAGERIE.md`](docs/MENAGERIE.md)).
+  Sets up controlled host conditions and *flips* them (a runtime on/off PATH, a
+  cwd present/absent, a binary executable or not), asserting the verdict moves
+  correctly and identically on both runtimes. This exercises the probe foreign's
+  absence path — `command -v <missing>` → both must report `RuntimeMissing` — that
+  the static fixtures never hit, the same way Bosun's Menagerie exercised real
+  teardown.
 
 The CLI edge has two foreigns — `IO` (read YAML/JSON, argv) and `Probe` (run a
 synchronous `/bin/sh` check). Each has a JS twin (for `node cli/run.js`) and a Go
