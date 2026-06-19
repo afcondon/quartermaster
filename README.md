@@ -14,21 +14,27 @@ it). **Bosun never invokes the build toolchain.**
 
 ## Status
 
-- **`quartermaster verify` — DONE (v1, local host).** The host-capability
+- **`quartermaster verify` — DONE (local + remote).** The host-capability
   pre-flight: ingest the *same* compose + registry Bosun reads, derive each
   service's runtime requirement from its launch command, probe the host, and
-  report whether each service is launchable there. This is the host-readiness
-  half of the seam — the signal Bosun consumes before it runs anything.
+  report whether each service is launchable there. Each service is probed on
+  **its own host** (via Bosun's `Target`): laptop services locally, remote
+  services over ssh — with the host's `envPrefix` (PATH etc.) applied, so a
+  perfectly-installed `node`/`docker` on a remote box isn't a false negative just
+  because a bare non-interactive ssh shell has a thin PATH. This is the
+  host-readiness half of the seam — the signal Bosun consumes before it runs.
 
   ```
   quartermaster verify <compose.yml> <registry.json>
   ```
 
-- **Next:** the build/ship half (`quartermaster build` / `ship`) — produce the
-  prebuilt artifact the deployment's `x-bosun.artifact` declares (build-once-ship,
-  registry push), which Bosun's `# MANUAL: build-once-ship` advisory points at;
-  remote (ssh-wrapped) verify via Bosun's `Target`; a native backend-go binary
-  (Node-free, like `gnomon-bosun`).
+- **`quartermaster build` — DONE (dry-run).** The build/ship half: render the
+  `docker build` + push plan for services that build from source (build-once-ship),
+  the thing Bosun's `# MANUAL: build-once-ship` advisory points at. Live
+  build/push is the next step (a push is outward, gated).
+
+- **Next:** live build/push; a native backend-go binary (Node-free, like
+  `gnomon-bosun`); richer host checks (`ERL_LIBS`, python venv, Rust codesign/TCC).
 
 ## Architecture
 

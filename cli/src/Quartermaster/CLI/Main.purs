@@ -16,6 +16,7 @@ import Prelude
 
 import Bosun.Adapters.Compose (ingestCompose)
 import Bosun.Adapters.Registry (ingestRegistry)
+import Bosun.Target (defaultTargets)
 import Data.Array as A
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Traversable (traverse)
@@ -58,7 +59,7 @@ runVerify composePath registryPath = do
     reqs = requirementsOf insts
   log ("quartermaster — verify " <> composePath <> " + " <> registryPath)
   log ""
-  outcomes <- traverse probeRequirement reqs
+  outcomes <- traverse (probeRequirement defaultTargets) reqs
   log (renderVerify (map verdictOf outcomes))
 
 runBuild :: String -> String -> String -> String -> Effect Unit
