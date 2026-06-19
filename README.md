@@ -33,8 +33,19 @@ it). **Bosun never invokes the build toolchain.**
   the thing Bosun's `# MANUAL: build-once-ship` advisory points at. Live
   build/push is the next step (a push is outward, gated).
 
-- **Next:** live build/push; a native backend-go binary (Node-free, like
-  `gnomon-bosun`); richer host checks (`ERL_LIBS`, python venv, Rust codesign/TCC).
+- **Native backend-go binary — DONE (Node-free).** Exactly like `gnomon-bosun`:
+  `scripts/gnomon-quartermaster.sh` transpiles the *real* `Quartermaster.CLI.Main`
+  to a single native Go binary (via backend-go) — no Node at runtime. It reads
+  real `compose.yml` via `gopkg.in/yaml.v3` and runs probes through `/bin/sh`
+  exactly like the node edge (so ssh-wrapped, envPrefix-aware remote verify works
+  identically). `scripts/qm-conformance.sh` asserts the node CLI and the gnomon
+  binary are **byte-identical** across both verbs and all host shapes (Process,
+  Container, and mixed mbp+macmini over ssh). Output is sorted in the pure core
+  (`Verify.requirementsOf` by host,service) so a passing diff means true
+  equivalence, not just the same set in a different order.
+
+- **Next:** live build/push; richer host checks (`ERL_LIBS`, python venv, Rust
+  codesign/TCC); `--targets <file>` to layer a targets.json.
 
 ## Architecture
 
@@ -53,4 +64,15 @@ ingest adapters) is **path-imported from the Bosun workspace next door**
 spago build            # compile
 npm install            # js-yaml, for running the node CLI
 node cli/run.js verify <compose> <registry>
+
+# …or Node-free, via the backend-go native binary (rebuilds when sources change):
+scripts/gnomon-quartermaster.sh verify <compose> <registry>
+scripts/qm-conformance.sh        # assert node ≡ gnomon, byte-for-byte
 ```
+
+The CLI edge has two foreigns — `IO` (read YAML/JSON, argv) and `Probe` (run a
+synchronous `/bin/sh` check). Each has a JS twin (for `node cli/run.js`) and a Go
+twin in `cli/go/` (for the native binary), the same app-owned-foreign pattern
+Bosun uses. The shared argonaut/foreign-object decode twins come from the sibling
+Bosun repo's `conformance/go` (one source of truth until a per-backend
+runtime-libraries repo exists).

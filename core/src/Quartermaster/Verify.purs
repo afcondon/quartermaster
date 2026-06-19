@@ -21,6 +21,7 @@ import Bosun.Executor as Executor
 import Bosun.Service (ServiceInstance)
 import Data.Array as A
 import Data.Maybe (Maybe(..))
+import Data.Tuple (Tuple(..))
 import Quartermaster.Runtime (ProbeSpec(..), Runtime, probeSpec, runtimeOfExecutor)
 
 -- | What one declared service needs of its host: the runtime to launch it, and
@@ -37,8 +38,14 @@ type Requirement =
 
 -- | Derive the requirements from ingested instances (compose ∪ registry). Pure —
 -- | no probing here; just "what would each host need."
+-- |
+-- | Sorted by (host, service): the ingested order follows `Foreign.Object`
+-- | iteration, which is insertion-order under node but unordered under Go
+-- | (a backend-go build over a Go map). A defined total order makes the report
+-- | deterministic across both runtimes — the same reason Bosun sorts its drift
+-- | report by id — and reads better, grouped per host and alphabetical within.
 requirementsOf :: Array ServiceInstance -> Array Requirement
-requirementsOf = map req
+requirementsOf = A.sortWith (\r -> Tuple r.host r.service) <<< map req
   where
   req si =
     { service: si.localName
