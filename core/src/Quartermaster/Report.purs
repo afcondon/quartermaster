@@ -2,7 +2,7 @@
 -- | not a `Show`). Turns the pure verdicts into the human/CI-facing host-
 -- | readiness summary. Total and deterministic, so a `--plan`-style golden diff
 -- | and the node≡backend-go conformance both bite on it.
-module Quartermaster.Report (renderVerify) where
+module Quartermaster.Report (renderVerify, renderBuild) where
 
 import Prelude
 
@@ -10,6 +10,7 @@ import Bosun.Atoms (unAbsPath, unHost)
 import Data.Array as A
 import Data.Foldable (intercalate)
 import Data.Maybe (Maybe(..))
+import Quartermaster.Build (BuildStep)
 import Quartermaster.Runtime (runtimeLabel)
 import Quartermaster.Verify (Finding(..), Verdict, ready)
 
@@ -47,3 +48,18 @@ renderVerify = case _ of
     in
       "quartermaster verify: " <> show okN <> "/" <> show total <> " service(s) launchable on their host"
         <> (if okN == total then " — host(s) ready." else " — provisioning needed (see ✗ above).")
+
+-- | Render the build/ship plan (`quartermaster build --dry-run`): per service,
+-- | the source context, target image, and the docker build+push commands. Empty
+-- | ⇒ an explicit "nothing to build" (every service already ships a prebuilt
+-- | image — the build-once-ship goal already met).
+renderBuild :: Array BuildStep -> String
+renderBuild = case _ of
+  [] -> "quartermaster build: nothing to build — no service builds from source (all prebuilt images)."
+  steps ->
+    intercalate "\n\n" (map block steps)
+      <> "\n\n" <> "quartermaster build: " <> show (A.length steps) <> " service(s) to build + ship."
+  where
+  block s =
+    "  " <> s.service <> "  (" <> s.context <> " → " <> s.image <> ")\n"
+      <> intercalate "\n" (map ("    $ " <> _) s.commands)
