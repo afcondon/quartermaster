@@ -65,6 +65,7 @@ build(){
   # Quartermaster's own CLI-edge twins (REAL Quartermaster_CLI_* symbols)
   cp "$QM"/cli/go/quartermaster_io_foreign.go    "$OUT/"
   cp "$QM"/cli/go/quartermaster_probe_foreign.go "$OUT/"
+  cp "$QM"/cli/go/quartermaster_build_foreign.go "$OUT/"
   log "go build ($(ls "$OUT"/*.go | wc -l | tr -d ' ') Go files; yaml.v3 from cache)"
   (
     cd "$OUT"

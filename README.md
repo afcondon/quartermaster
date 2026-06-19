@@ -28,10 +28,14 @@ it). **Bosun never invokes the build toolchain.**
   quartermaster verify <compose.yml> <registry.json>
   ```
 
-- **`quartermaster build` — DONE (dry-run).** The build/ship half: render the
-  `docker build` + push plan for services that build from source (build-once-ship),
-  the thing Bosun's `# MANUAL: build-once-ship` advisory points at. Live
-  build/push is the next step (a push is outward, gated).
+- **`quartermaster build` — DONE (live).** The build/ship half: for each service
+  that builds from source (build-once-ship — the thing Bosun's `# MANUAL` advisory
+  points at), run `docker build` + `docker push` **on its build host** (ssh-wrapped
+  for a remote target, in the target's workdir, with its `envPrefix`), shipping a
+  pinned image to the registry so every host runs identical bytes. `--dry-run`
+  prints the plan only; `--no-push` builds without the (outward) push. Proven live
+  in both runtime lanes: node and the gnomon binary built+pushed the polyglot
+  `edge` image to the mini's `localhost:5001` registry, same digest.
 
 - **Native backend-go binary — DONE (Node-free).** Exactly like `gnomon-bosun`:
   `scripts/gnomon-quartermaster.sh` transpiles the *real* `Quartermaster.CLI.Main`
@@ -44,8 +48,22 @@ it). **Bosun never invokes the build toolchain.**
   (`Verify.requirementsOf` by host,service) so a passing diff means true
   equivalence, not just the same set in a different order.
 
-- **Next:** live build/push; richer host checks (`ERL_LIBS`, python venv, Rust
-  codesign/TCC); `--targets <file>` to layer a targets.json.
+- **Next:** close the build-once-ship loop end-to-end (flip a deployment's
+  build-from-source service to the QM-built pinned image so Bosun ships the built
+  bytes and the `# MANUAL` advisory disappears); richer host checks (`ERL_LIBS`,
+  python venv, Rust codesign/TCC, and the `DOCKER_CONFIG` non-interactive-build
+  prep below); `--targets <file>` to layer a targets.json.
+
+### Host prep note (the mini)
+
+`quartermaster build`'s `docker build` pulls a public base image from docker.io.
+Over a non-interactive ssh session the macOS keychain is locked, so the `desktop`
+docker credential helper fails even for an anonymous public pull. The macmini
+target's `envPrefix` therefore sets `DOCKER_CONFIG=/Users/andrew/.docker-nocreds`
+— a docker config with no `credsStore`/`currentContext` (so no keychain helper,
+default context) and a `cli-plugins` symlink (so `docker compose` still resolves).
+That directory is currently **manual host prep**; creating/validating it is a
+natural future `quartermaster` host-provisioning check.
 
 ## Architecture
 

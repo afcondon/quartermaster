@@ -47,7 +47,7 @@ assert_identical "menagerie (all Process/python3)"     verify "$FIX/menagerie"
 assert_identical "multihost (all Container)"           verify "$FIX/topologies/multihost"
 assert_identical "live (mixed mbp+macmini, ssh probe)" verify "$FIX/topologies/live"
 echo "build --dry-run:"
-assert_identical "edge-missing (build context)"        build  "$FIX/topologies/edge-missing"
+assert_identical "edge-missing (build context)"        build  "$FIX/topologies/edge-missing" --dry-run
 
 echo
 if [ "$fail" -eq 0 ]; then
