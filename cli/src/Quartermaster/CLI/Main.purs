@@ -26,7 +26,9 @@ import Quartermaster.Build (buildInvocation, buildPlan)
 import Quartermaster.CLI.Build (runBuildStep)
 import Quartermaster.CLI.IO (argv, readJsonFile, readYamlFile)
 import Quartermaster.CLI.Probe (probeRequirement)
-import Quartermaster.Report (renderBuild, renderVerify)
+import Quartermaster.CLI.Publish (ensureCustomDomain, runPublishStep)
+import Quartermaster.Publish (automated, publishPlan, publishShellLine)
+import Quartermaster.Report (renderBuild, renderPublish, renderVerify)
 import Quartermaster.Verify (requirementsOf, verdictOf)
 
 main :: Effect Unit
@@ -44,6 +46,8 @@ main = do
     [ "verify", composePath, registryPath ] -> runVerify composePath registryPath
     [ "build", composePath, registryPath ] ->
       runBuild { registry, pin, dryRun: dr.found, push: not np.found } composePath registryPath
+    [ "publish", composePath, registryPath ] ->
+      runPublish { dryRun: dr.found } composePath registryPath
     _ -> log usage
 
 usage :: String
@@ -54,7 +58,11 @@ usage =
     <> "  quartermaster build [--registry R] [--pin P] [--dry-run] [--no-push] <compose.yml> <registry.json>\n"
     <> "      build + ship the services that build from source (build-once-ship), on their\n"
     <> "      build host (ssh-wrapped for a remote target). --dry-run prints the plan only;\n"
-    <> "      --no-push builds without the (outward) push."
+    <> "      --no-push builds without the (outward) push.\n\n"
+    <> "  quartermaster publish [--dry-run] <compose.yml> <registry.json>\n"
+    <> "      ship each static-CDN site to its CDN (the cloudflare-pages-wrangler channel:\n"
+    <> "      `npx wrangler pages deploy`). Runs locally, where wrangler + CF auth live.\n"
+    <> "      --dry-run prints the plan only; the publish itself is outward, gated by the verb."
 
 runVerify :: String -> String -> Effect Unit
 runVerify composePath registryPath = do
@@ -104,6 +112,51 @@ runBuild opts composePath registryPath = do
     ok <- runBuildStep target opts.push step
     log (if ok then "  ✓ " <> step.service <> (if opts.push then " built + pushed" else " built")
                else "  ✗ " <> step.service <> " FAILED")
+    pure ok
+
+runPublish :: { dryRun :: Boolean } -> String -> String -> Effect Unit
+runPublish opts composePath registryPath = do
+  composeJson <- readYamlFile composePath
+  registryJson <- readJsonFile registryPath
+  let
+    insts = ingestCompose composeJson <> ingestRegistry registryJson
+    steps = publishPlan insts
+  if opts.dryRun then do
+    log ("quartermaster — publish --dry-run " <> composePath <> " + " <> registryPath)
+    log ""
+    log (renderPublish steps)
+    log ""
+    log "(dry-run: the plan only. Drop --dry-run to publish for real.)"
+  else case steps of
+    [] -> do
+      log ("quartermaster — publish " <> composePath <> " + " <> registryPath)
+      log ""
+      log "quartermaster publish: nothing to publish — no static-CDN service declared."
+    _ -> do
+      let parts = A.partition automated steps
+      log ("quartermaster — publish " <> composePath <> " + " <> registryPath)
+      log ""
+      _ <- traverse skipNote parts.no
+      results <- traverse runOne parts.yes
+      let okN = A.length (A.filter identity results)
+      log ""
+      log ("quartermaster publish: " <> show okN <> "/" <> show (A.length results) <> " site(s) published"
+        <> (if okN == A.length results then "." else " — see failures above."))
+  where
+  skipNote step =
+    log ("• " <> step.service <> " → " <> step.channel <> ": not yet automated (MVP: cloudflare-pages-wrangler) — skipped")
+  runOne step = do
+    log ("▶ " <> step.service <> " → " <> step.channel <> " (" <> step.dest <> ")")
+    log ("  $ " <> publishShellLine step)
+    ok <- runPublishStep step
+    if ok then do
+      log ("  ✓ " <> step.service <> " published → " <> step.url)
+      case step.domainAttach of
+        Just d -> do
+          res <- ensureCustomDomain d
+          log ((if res.ok then "  ✓ custom domain: " else "  • custom domain: ") <> res.message)
+        Nothing -> pure unit
+    else log ("  ✗ " <> step.service <> " FAILED")
     pure ok
 
 -- | Pull an optional `<name> <value>` flag out of the args wherever it appears.

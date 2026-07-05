@@ -18,6 +18,7 @@ import Prelude
 
 import Bosun.Executor (Executor)
 import Bosun.Executor as Executor
+import Bosun.Publish (PublishChannel(..))
 import Data.Array as A
 import Data.Maybe (Maybe(..))
 import Data.String (Pattern(..))
@@ -36,6 +37,7 @@ data Runtime
   | GoToolchain
   | RustToolchain
   | Container
+  | Wrangler           -- Cloudflare Pages publish via `npx wrangler` (the StaticCDN publish tool)
   | OnPath String      -- a bare command expected on PATH (e.g. `static-httpd`)
   | BinaryAt String    -- a prebuilt executable at this path (`./srv`, `/usr/local/bin/x`)
   | Unknown String
@@ -51,6 +53,7 @@ runtimeLabel = case _ of
   GoToolchain -> "go"
   RustToolchain -> "cargo"
   Container -> "container engine"
+  Wrangler -> "wrangler (npx)"
   OnPath c -> c
   BinaryAt p -> p
   Unknown c -> "unknown (" <> c <> ")"
@@ -74,6 +77,10 @@ probeSpec = case _ of
   GoToolchain -> CommandOnPath "go"
   RustToolchain -> CommandOnPath "cargo"
   Container -> EngineAny
+  -- "can this host publish?" = can it run `npx wrangler` — checks the runner is
+  -- present (node/npx), not CF auth (a credentials check, future work — cf #238's
+  -- DOCKER_CONFIG-style host prep, the peer of `docker login` for build-once-ship).
+  Wrangler -> CommandOnPath "npx"
   OnPath c -> CommandOnPath c
   BinaryAt p -> FileExecutable p
   Unknown c -> NoProbe ("cannot classify launch command head: " <> c)
@@ -86,7 +93,13 @@ runtimeOfExecutor :: Executor -> Runtime
 runtimeOfExecutor = case _ of
   Executor.Process pr -> runtimeOfCommand pr.command
   Executor.Container _ -> Container
-  Executor.StaticCDN _ -> Unknown "static-cdn"
+  -- A StaticCDN service isn't "launched on a host" — it's published to a CDN, so
+  -- verify's question becomes "can this host PUBLISH?": the publish tool for the
+  -- channel. wrangler for CF-Pages-wrangler; git for the git-push channels.
+  Executor.StaticCDN cdn -> case cdn.publish of
+    CloudflarePagesWrangler _ -> Wrangler
+    CloudflarePagesGit _ -> OnPath "git"
+    GitHubPagesRepoDir _ -> OnPath "git"
   Executor.SystemdUnit _ -> Unknown "systemd"
   Executor.LaunchdJob _ -> Unknown "launchd"
   Executor.Remote _ -> Unknown "remote"

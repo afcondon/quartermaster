@@ -37,6 +37,23 @@ it). **Bosun never invokes the build toolchain.**
   in both runtime lanes: node and the gnomon binary built+pushed the polyglot
   `edge` image to the mini's `localhost:5001` registry, same digest.
 
+- **`quartermaster publish` — DONE (live).** The CDN-ship half (decision D-G2,
+  the thing Bosun's `# MANUAL: static-CDN publish` advisory now points at). For
+  each `StaticCDN` service (`x-bosun.static`, `cloudflare-pages-wrangler`
+  channel), one shot: ensure the Pages project, stage a clean artifact (rsync
+  minus infra/meta files — `wrangler pages deploy` ignores `.assetsignore`),
+  `wrangler pages deploy`, then ensure the custom domain — attach it (wrangler
+  OAuth, `pages:write`) and create the zone CNAME (a dedicated `QM_CF_DNS_TOKEN`,
+  Zone:DNS:Edit — NOT `CLOUDFLARE_API_TOKEN`, which wrangler would hijack for the
+  deploy). ~4 CF API calls, no retry loops. `--dry-run` prints the plan. Proven
+  live 2026-07-05: `liquid-purescript.hylograph.net` end-to-end. The git-push
+  channels are recognised but not yet automated (reported, never silently
+  skipped). See `bosun/docs/PUBLISH-A-SITE.md`.
+
+  ```
+  quartermaster publish <compose.yml> <registry.json>
+  ```
+
 - **Native backend-go binary — DONE (Node-free).** Exactly like `gnomon-bosun`:
   `scripts/gnomon-quartermaster.sh` transpiles the *real* `Quartermaster.CLI.Main`
   to a single native Go binary (via backend-go) — no Node at runtime. It reads

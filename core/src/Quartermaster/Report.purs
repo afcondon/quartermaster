@@ -2,7 +2,7 @@
 -- | not a `Show`). Turns the pure verdicts into the human/CI-facing host-
 -- | readiness summary. Total and deterministic, so a `--plan`-style golden diff
 -- | and the node≡backend-go conformance both bite on it.
-module Quartermaster.Report (renderVerify, renderBuild) where
+module Quartermaster.Report (renderVerify, renderBuild, renderPublish) where
 
 import Prelude
 
@@ -11,6 +11,7 @@ import Data.Array as A
 import Data.Foldable (intercalate)
 import Data.Maybe (Maybe(..))
 import Quartermaster.Build (BuildStep)
+import Quartermaster.Publish (PublishStep, automated)
 import Quartermaster.Runtime (runtimeLabel)
 import Quartermaster.Verify (Finding(..), Verdict, ready)
 
@@ -63,3 +64,35 @@ renderBuild = case _ of
   block s =
     "  " <> s.service <> "  (" <> s.context <> " → " <> s.image <> ")\n"
       <> intercalate "\n" (map ("    $ " <> _) s.commands)
+
+-- | Render the publish plan (`quartermaster publish --dry-run`): per site, the
+-- | channel, destination, and the publish command (plus the one-time custom-domain
+-- | step). A recognised-but-not-yet-automated channel is named, never silently
+-- | dropped. Empty ⇒ an explicit "nothing to publish".
+renderPublish :: Array PublishStep -> String
+renderPublish = case _ of
+  [] -> "quartermaster publish: nothing to publish — no static-CDN service declared."
+  steps ->
+    intercalate "\n\n" (map block steps)
+      <> "\n\n" <> summary steps
+  where
+  block s
+    | automated s =
+        "  " <> s.service <> "  (" <> s.channel <> " → " <> s.dest <> ")\n"
+          <> intercalate "\n" (map ("    $ " <> _) s.commands)
+          <> domainLine s
+    | otherwise =
+        "  " <> s.service <> "  (" <> s.channel <> " → " <> s.dest <> ")\n"
+          <> "    - channel not yet automated by `quartermaster publish` (MVP: cloudflare-pages-wrangler)"
+
+  domainLine s = case s.domainAttach of
+    Just d -> "\n    → ensure custom domain " <> d.domain <> " (CF Pages API)"
+    Nothing -> ""
+
+  summary steps =
+    let
+      total = A.length steps
+      okN = A.length (A.filter automated steps)
+    in
+      "quartermaster publish: " <> show okN <> "/" <> show total <> " site(s) publishable"
+        <> (if okN == total then "." else " — the rest use channels not yet automated (see above).")
