@@ -47,6 +47,13 @@ where() { [ -z "$host" ] && echo "local" || echo "$host"; }
 
 verify() {
   ok=0
+  # reachability FIRST: an unreachable host must never read as
+  # not-provisioned (learned live — an ssh auth failure reported
+  # "nix ABSENT" for a host that simply refused the default user)
+  if ! run "true" >/dev/null 2>&1; then
+    echo "$(where): UNREACHABLE (ssh failed — wrong user? host down?)"
+    return 3
+  fi
   if v=$(run "nix --version" 2>/dev/null); then
     echo "  nix present:    OK ($v)"
   else
@@ -114,7 +121,7 @@ sync() {
   echo "realizing shells locally…"
   paths=$(local_manifest)
   n=$(echo "$paths" | wc -l | tr -d ' ')
-  echo "copying $n toolchain closures to $host…"
+  echo "copying $n toolchain closures to ${host}…"
   # shellcheck disable=SC2086
   PATH="$NIX_PROFILE_BIN:$PATH" nix copy --to "ssh://$host" $paths
   echo "done — verify with: qm-nix.sh manifest $host"
@@ -125,9 +132,10 @@ manifest() {
     local_manifest
   else
     # the target evaluates the flake itself (reproducibility, not
-    # transport): needs this repo present at the same relative spot,
-    # else pass QM_REMOTE_DIR
-    rdir=${QM_REMOTE_DIR:-$QM_DIR}
+    # transport): needs the flake present on the host. Default is
+    # home-relative, NOT this machine's absolute path — usernames
+    # differ across the fleet (afc here, andrew on the mini).
+    rdir=${QM_REMOTE_DIR:-'$HOME/work/afc-work/ShapedSteer/quartermaster'}
     for s in $SHELLS; do
       run "nix develop \"$rdir#$s\" --command sh -c 'echo \"\$PATH\"'" 2>/dev/null \
         | tr ':' '\n' | grep '^/nix/store' | sed 's|/bin$||'
