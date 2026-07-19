@@ -10,7 +10,7 @@
 # node, with purescript-go (backend-go) as a Node-free native column.
 workspace:
   packageSet:
-    registry: 77.5.0
+    registry: 77.13.1
   extraPackages:
     bosun-core:
       path: ../bosun/core
