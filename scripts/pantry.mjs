@@ -74,28 +74,53 @@ const universe = (set, extraDeps) => {
     deps = [...new Set(projs.flatMap((p) => p.deps))].sort();
     console.log(`union of ${projs.length} projects on ${set}: ${deps.length} packages`);
   }
-  // registry deps only: local/extra packages can't live in the universe.
-  // Unknown names make spago fail; the caller prunes and retries — the
-  // error names the package.
-  const yaml = [
-    "package:",
-    "  name: pantry-universe",
-    "  dependencies:",
-    ...deps.map((d) => `    - ${d}`),
-    "workspace:",
-    "  packageSet:",
-    `    registry: ${set}`,
-    "",
-  ].join("\n");
-  writeFileSync(join(dir, "spago.yaml"), yaml);
+  // registry deps only: local path-dep names (hylograph-*, warrant, …)
+  // can't live in the universe. Rather than hard-code that knowledge,
+  // let spago name the strangers ("packages do not exist in your
+  // package set") and prune them — a bounded fixpoint, one pass in
+  // practice.
+  const writeManifest = (ds) =>
+    writeFileSync(
+      join(dir, "spago.yaml"),
+      [
+        "package:",
+        "  name: pantry-universe",
+        "  dependencies:",
+        ...ds.map((d) => `    - ${d}`),
+        "workspace:",
+        "  packageSet:",
+        `    registry: ${set}`,
+        "",
+      ].join("\n")
+    );
   mkdirSync(join(dir, "src"), { recursive: true });
   writeFileSync(
     join(dir, "src", "PantryUniverse.purs"),
     "module PantryUniverse where\n\nimport Prelude\n\nuniverse :: Int\nuniverse = 0\n"
   );
   console.log(`building universe ${set} (purs ${pursVersion()}) in ${dir}…`);
-  const r = spawnSync("spago", ["build"], { cwd: dir, stdio: "inherit" });
-  if (r.status !== 0) process.exit(r.status ?? 1);
+  let r;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    writeManifest(deps);
+    r = spawnSync("spago", ["build"], { cwd: dir, encoding: "utf8" });
+    const err = (r.stderr || "") + (r.stdout || "");
+    if (r.status === 0) break;
+    const block = err.match(/packages do not exist in your package set:\n((?:\s+- .*\n)+)/);
+    if (!block) {
+      process.stderr.write(err);
+      process.exit(r.status ?? 1);
+    }
+    const strangers = block[1]
+      .split("\n")
+      .map((l) => l.trim().replace(/^- /, "").split(" ")[0])
+      .filter(Boolean);
+    console.log(`pruning ${strangers.length} non-registry names: ${strangers.join(", ")}`);
+    deps = deps.filter((d) => !strangers.includes(d));
+  }
+  if (r.status !== 0) {
+    console.error("universe still failing after pruning; giving up");
+    process.exit(1);
+  }
   const n = readdirSync(join(dir, "output")).length - 1;
   console.log(`universe ready: ${n} modules in ${join(dir, "output")}`);
 };
