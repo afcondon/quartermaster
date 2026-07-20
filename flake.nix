@@ -58,6 +58,10 @@
           packages = [ pkgs.nodejs_22 ];
         };
 
+        go = pkgs.mkShell {
+          packages = [ pkgs.go pkgs.gopls ];
+        };
+
         # purerl-tidal needs BOTH the BEAM toolchain (erlang backend
         # runtime + rebar3) AND the PureScript toolchain (compile +
         # tidy) — it's a PureScript source tree that targets Erlang.
@@ -89,6 +93,19 @@
         # that cclsp drives against the same purs as the shells.
         purescript-language-server = pkgs.purescript-language-server;
 
+        # wave-3 runtime toolchains: the language/runtime binaries the
+        # substrate assumes present. node pinned to nodejs_22 to match
+        # the devShells byte-for-byte.
+        node = pkgs.nodejs_22;
+        go = pkgs.go;
+        python = pkgs.python313;
+        rustc = pkgs.rustc;
+        cargo = pkgs.cargo;
+        rust-analyzer = pkgs.rust-analyzer;
+        # large closure accepted: unlocks removing ~170 brew library
+        # formulae that only existed to satisfy ffmpeg.
+        ffmpeg = pkgs.ffmpeg;
+
         # the everyday CLI kit — one buildEnv so `nix profile install
         # .#tools` (review-gated, not done here) yields one entry.
         # ffmpeg deliberately excluded: huge closure, decided later.
@@ -110,6 +127,19 @@
             pkgs.httpie
             pkgs.direnv
             pkgs.git-lfs
+            # wave-3 tranche 2 (jq already above). If one fails to
+            # eval/build on aarch64-darwin, drop it here rather than
+            # let it block the bundle.
+            pkgs.ack
+            pkgs.helix
+            pkgs.nnn
+            pkgs.coreutils
+            pkgs.gnused
+            pkgs.gettext
+            pkgs.tmate
+            pkgs.bazelisk
+            pkgs.asciidoctor
+            pkgs.arduino-cli
           ];
         };
       });
