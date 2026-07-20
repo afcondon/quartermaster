@@ -43,147 +43,71 @@ data Recipe = Recipe
   }
 
 --------------------------------------------------------------------------------
--- Packages (symbolic references into nixpkgs + the purescript overlay)
+-- Catalog. Two constructors do all the work:
+--   from      — the display name IS the nixpkgs attribute (the common case)
+--   as name   — a display name mapped onto a different / nested nixpkgs path
 --------------------------------------------------------------------------------
 
-pursP :: Package
-pursP = Package { name: "purs", path: [ "purs-bin", "purs-0_15_15" ] }
+-- | A package whose display name equals its (single-segment) nixpkgs attr.
+from :: String -> Package
+from n = Package { name: n, path: [ n ] }
 
-spagoP :: Package
-spagoP = Package { name: "spago", path: [ "spago-unstable" ] }
+-- | A package published under `name` but sourced from a different nixpkgs
+-- | attribute path (overlay names, version-pinned attrs, nested sets).
+as :: String -> Array String -> Package
+as name path = Package { name, path }
 
-pursTidyP :: Package
-pursTidyP = Package { name: "purs-tidy", path: [ "purs-tidy" ] }
+-- overlay / version-pinned / nested (name ≠ path)
+purs   = as "purs"   [ "purs-bin", "purs-0_15_15" ]
+spago  = as "spago"  [ "spago-unstable" ]
+node   = as "node"   [ "nodejs_22" ]
+erlang = as "erlang" [ "erlang_28" ]
+python = as "python" [ "python313" ]
+cabal  = as "cabal"  [ "cabal-install" ]
+ghc    = as "ghc"    [ "haskell", "compiler", "ghc98" ]
+hls    = as "hls"    [ "haskell", "packages", "ghc98", "haskell-language-server" ]
 
-esbuildP :: Package
-esbuildP = Package { name: "esbuild", path: [ "esbuild" ] }
-
-plsP :: Package
-plsP = Package { name: "purescript-language-server", path: [ "purescript-language-server" ] }
-
-nodeP :: Package
-nodeP = Package { name: "node", path: [ "nodejs_22" ] }
-
-erlangP :: Package
-erlangP = Package { name: "erlang", path: [ "erlang_28" ] }
-
-rebar3P :: Package
-rebar3P = Package { name: "rebar3", path: [ "rebar3" ] }
-
-goP :: Package
-goP = Package { name: "go", path: [ "go" ] }
-
-goplsP :: Package
-goplsP = Package { name: "gopls", path: [ "gopls" ] }
-
-pythonP :: Package
-pythonP = Package { name: "python", path: [ "python313" ] }
-
-rustcP :: Package
-rustcP = Package { name: "rustc", path: [ "rustc" ] }
-
-cargoP :: Package
-cargoP = Package { name: "cargo", path: [ "cargo" ] }
-
-rustAnalyzerP :: Package
-rustAnalyzerP = Package { name: "rust-analyzer", path: [ "rust-analyzer" ] }
-
-ghcP :: Package
-ghcP = Package { name: "ghc", path: [ "haskell", "compiler", "ghc98" ] }
-
-hlsP :: Package
-hlsP = Package { name: "hls", path: [ "haskell", "packages", "ghc98", "haskell-language-server" ] }
-
-cabalP :: Package
-cabalP = Package { name: "cabal", path: [ "cabal-install" ] }
-
-stackP :: Package
-stackP = Package { name: "stack", path: [ "stack" ] }
-
-ffmpegP :: Package
-ffmpegP = Package { name: "ffmpeg", path: [ "ffmpeg" ] }
-
-zlibP :: Package
-zlibP = Package { name: "zlib", path: [ "zlib" ] }
-
-gitP :: Package
-gitP = Package { name: "git", path: [ "git" ] }
+-- name == nixpkgs attribute (incl. hyphenated attrs, which need no remapping)
+pursTidy      = from "purs-tidy"
+pls           = from "purescript-language-server"
+rustAnalyzer  = from "rust-analyzer"
+esbuild       = from "esbuild"
+rebar3        = from "rebar3"
+go            = from "go"
+gopls         = from "gopls"
+rustc         = from "rustc"
+cargo         = from "cargo"
+stack         = from "stack"
+ffmpeg        = from "ffmpeg"
+zlib          = from "zlib"
+git           = from "git"
 
 -- the everyday CLI kit bundled by `tools`
-ghP :: Package
-ghP = Package { name: "gh", path: [ "gh" ] }
-
-fdP :: Package
-fdP = Package { name: "fd", path: [ "fd" ] }
-
-ripgrepP :: Package
-ripgrepP = Package { name: "ripgrep", path: [ "ripgrep" ] }
-
-clocP :: Package
-clocP = Package { name: "cloc", path: [ "cloc" ] }
-
-duckdbP :: Package
-duckdbP = Package { name: "duckdb", path: [ "duckdb" ] }
-
-cmakeP :: Package
-cmakeP = Package { name: "cmake", path: [ "cmake" ] }
-
-jqP :: Package
-jqP = Package { name: "jq", path: [ "jq" ] }
-
-treeP :: Package
-treeP = Package { name: "tree", path: [ "tree" ] }
-
-tmuxP :: Package
-tmuxP = Package { name: "tmux", path: [ "tmux" ] }
-
-pandocP :: Package
-pandocP = Package { name: "pandoc", path: [ "pandoc" ] }
-
-graphvizP :: Package
-graphvizP = Package { name: "graphviz", path: [ "graphviz" ] }
-
-exiftoolP :: Package
-exiftoolP = Package { name: "exiftool", path: [ "exiftool" ] }
-
-httpieP :: Package
-httpieP = Package { name: "httpie", path: [ "httpie" ] }
-
-direnvP :: Package
-direnvP = Package { name: "direnv", path: [ "direnv" ] }
-
-gitLfsP :: Package
-gitLfsP = Package { name: "git-lfs", path: [ "git-lfs" ] }
-
-ackP :: Package
-ackP = Package { name: "ack", path: [ "ack" ] }
-
-helixP :: Package
-helixP = Package { name: "helix", path: [ "helix" ] }
-
-nnnP :: Package
-nnnP = Package { name: "nnn", path: [ "nnn" ] }
-
-coreutilsP :: Package
-coreutilsP = Package { name: "coreutils", path: [ "coreutils" ] }
-
-gnusedP :: Package
-gnusedP = Package { name: "gnused", path: [ "gnused" ] }
-
-gettextP :: Package
-gettextP = Package { name: "gettext", path: [ "gettext" ] }
-
-tmateP :: Package
-tmateP = Package { name: "tmate", path: [ "tmate" ] }
-
-bazeliskP :: Package
-bazeliskP = Package { name: "bazelisk", path: [ "bazelisk" ] }
-
-asciidoctorP :: Package
-asciidoctorP = Package { name: "asciidoctor", path: [ "asciidoctor" ] }
-
-arduinoCliP :: Package
-arduinoCliP = Package { name: "arduino-cli", path: [ "arduino-cli" ] }
+gh = from "gh"
+fd = from "fd"
+ripgrep = from "ripgrep"
+cloc = from "cloc"
+duckdb = from "duckdb"
+cmake = from "cmake"
+jq = from "jq"
+tree = from "tree"
+tmux = from "tmux"
+pandoc = from "pandoc"
+graphviz = from "graphviz"
+exiftool = from "exiftool"
+httpie = from "httpie"
+direnv = from "direnv"
+gitLfs = from "git-lfs"
+ack = from "ack"
+helix = from "helix"
+nnn = from "nnn"
+coreutils = from "coreutils"
+gnused = from "gnused"
+gettext = from "gettext"
+tmate = from "tmate"
+bazelisk = from "bazelisk"
+asciidoctor = from "asciidoctor"
+arduinoCli = from "arduino-cli"
 
 --------------------------------------------------------------------------------
 -- Shells
@@ -192,7 +116,7 @@ arduinoCliP = Package { name: "arduino-cli", path: [ "arduino-cli" ] }
 purescriptShell :: Shell
 purescriptShell = Shell
   { name: "purescript"
-  , tools: [ pursP, spagoP, pursTidyP, nodeP, gitP ]
+  , tools: [ purs, spago, pursTidy, node, git ]
   , cLibs: []
   , why: "The lingua franca shell (also the default): purs pinned to 0.15.15, spago, tidy, node."
   }
@@ -200,7 +124,7 @@ purescriptShell = Shell
 rustShell :: Shell
 rustShell = Shell
   { name: "rust"
-  , tools: [ rustcP, cargoP ]
+  , tools: [ rustc, cargo ]
   , cLibs: []
   , why: "Rust toolchain for the Rust-authored subsystems (es9-daemon, link-spike, msm)."
   }
@@ -208,7 +132,7 @@ rustShell = Shell
 erlangShell :: Shell
 erlangShell = Shell
   { name: "erlang"
-  , tools: [ erlangP, rebar3P ]
+  , tools: [ erlang, rebar3 ]
   , cLibs: []
   , why: "The BEAM toolchain (Erlang 28 + rebar3) for purerl output."
   }
@@ -216,7 +140,7 @@ erlangShell = Shell
 nodeShell :: Shell
 nodeShell = Shell
   { name: "node"
-  , tools: [ nodeP ]
+  , tools: [ node ]
   , cLibs: []
   , why: "Bare Node 22 for JS-backend output and Node-hosted tooling."
   }
@@ -224,7 +148,7 @@ nodeShell = Shell
 goShell :: Shell
 goShell = Shell
   { name: "go"
-  , tools: [ goP, goplsP ]
+  , tools: [ go, gopls ]
   , cLibs: []
   , why: "Go toolchain + gopls for the Gnomon backend and Go-authored tools."
   }
@@ -232,15 +156,15 @@ goShell = Shell
 haskellShell :: Shell
 haskellShell = Shell
   { name: "haskell"
-  , tools: [ ghcP, cabalP, stackP, hlsP, gitP ]
-  , cLibs: [ zlibP ]
+  , tools: [ ghc, cabal, stack, hls, git ]
+  , cLibs: [ zlib ]
   , why: "One GHC (9.8.4) for the whole estate; cabal + stack + HLS. zlib for the streaming-commons link chain."
   }
 
 purerlShell :: Shell
 purerlShell = Shell
   { name: "purerl"
-  , tools: [ erlangP, rebar3P, pursP, spagoP, pursTidyP, nodeP ]
+  , tools: [ erlang, rebar3, purs, spago, pursTidy, node ]
   , cLibs: []
   , why: "purerl-tidal needs BOTH the BEAM runtime and the PureScript toolchain — PS source targeting Erlang."
   }
@@ -262,33 +186,18 @@ recipe = Recipe
       ]
   , defaultShell: "purescript"
   , packages:
-      [ pursP
-      , spagoP
-      , pursTidyP
-      , esbuildP
-      , erlangP
-      , rebar3P
-      , plsP
-      , nodeP
-      , goP
-      , pythonP
-      , rustcP
-      , cargoP
-      , rustAnalyzerP
-      , ghcP
-      , cabalP
-      , stackP
-      , ffmpegP
+      [ purs, spago, pursTidy, esbuild, erlang, rebar3, pls, node, go
+      , python, rustc, cargo, rustAnalyzer, ghc, cabal, stack, ffmpeg
       ]
   , tools: Bundle
       { name: "afc-cli-tools"
       , contents:
-          [ ghP, fdP, ripgrepP, clocP, duckdbP
-          , cmakeP, jqP, treeP, tmuxP, pandocP
-          , graphvizP, exiftoolP, httpieP, direnvP
-          , gitLfsP, ackP, helixP, nnnP
-          , coreutilsP, gnusedP, gettextP, tmateP
-          , bazeliskP, asciidoctorP, arduinoCliP
+          [ gh, fd, ripgrep, cloc, duckdb
+          , cmake, jq, tree, tmux, pandoc
+          , graphviz, exiftool, httpie, direnv
+          , gitLfs, ack, helix, nnn
+          , coreutils, gnused, gettext, tmate
+          , bazelisk, asciidoctor, arduinoCli
           ]
       }
   }
