@@ -1,0 +1,22 @@
+# JS-backend side of the recipe: the shared IR + the ToDocs interpreter + a
+# Main that prints the rendered Markdown. Compiled with the ordinary JS
+# backend (unlike the Nyx path in bin/verify.sh, which compiles ONLY IR+ToNix
+# to CoreFn). This is a self-contained workspace root so spago stops here and
+# does not climb into the quartermaster workspace above.
+#
+# Note: ToNix.purs is also under src/ and is compiled here too, but it is a
+# Nix-only interpreter — its foreign imports are satisfied for the JS build by
+# the throwing stub in ToNix.js, and it is never run under Node.
+package:
+  name: quartermaster-recipe
+  dependencies:
+    - prelude
+    - arrays
+    - strings
+    - effect
+    - console
+  run:
+    main: Main
+workspace:
+  packageSet:
+    registry: 77.13.1

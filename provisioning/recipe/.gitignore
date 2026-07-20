@@ -1,3 +1,6 @@
 output/
 .direnv/
 result
+.spago/
+docs.generated.md
+node_modules/

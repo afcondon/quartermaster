@@ -13,7 +13,7 @@ let
     overlays = [ qm.inputs.purescript-overlay.overlays.default ];
   };
 
-  recipe = (import recipeOut).flake pkgs;
+  recipe = (import recipeOut).flake pkgs;  # recipeOut = output/Quartermaster.Recipe.ToNix
 
   fShells = qm.devShells.${sys};
   rShells = recipe.devShells;

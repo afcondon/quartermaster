@@ -8,15 +8,19 @@ export NIX_CONFIG="experimental-features = nix-command flakes"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"          # provisioning/recipe
 export QM_PATH="/Users/afc/work/afc-work/ShapedSteer/quartermaster"
-export RECIPE_OUT="$ROOT/output/Quartermaster.Recipe"
+export RECIPE_OUT="$ROOT/output/Quartermaster.Recipe.ToNix"
 
 PURSNIX="$(ls /Users/afc/work/afc-work/purescript-backends/purescript-nix/.stack-work/install/*/*/*/bin/pursnix 2>/dev/null | head -1)"
 [ -n "$PURSNIX" ] || { echo "FATAL: pursnix not built (cd purescript-nix && stack build)"; exit 1; }
 
 cd "$ROOT"
-echo "==> compiling recipe (purs $(purs --version), Prim-only)"
+echo "==> compiling recipe (purs $(purs --version), Prim-only: IR + ToNix)"
 rm -rf output
-purs compile --codegen corefn 'src/**/*.purs' >/dev/null
+# ONLY the Prim-only Nyx modules — ToDocs/Main import the real prelude and are
+# for the JS backend (see bin/docs.sh), not this Nix path.
+purs compile --codegen corefn \
+  'src/Quartermaster/Recipe/IR.purs' \
+  'src/Quartermaster/Recipe/ToNix.purs' >/dev/null
 echo "==> Nyx: CoreFn -> Nix"
 "$PURSNIX" output . >/dev/null
 
