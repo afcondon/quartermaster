@@ -79,6 +79,11 @@
             pkgs.haskell.packages.ghc98.haskell-language-server
             pkgs.git # cabal/stack shell out to it
           ];
+          # C libraries Haskell packages link against. zlib: upstream
+          # purescript's stack.yaml lists it in its nix section; the
+          # streaming-commons -> zlib dep chain needs zlib.h + libz,
+          # which the nixpkgs apple-sdk does not expose.
+          buildInputs = [ pkgs.zlib ];
         };
 
         # purerl-tidal needs BOTH the BEAM toolchain (erlang backend
