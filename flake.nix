@@ -58,7 +58,60 @@
           packages = [ pkgs.nodejs_22 ];
         };
 
+        # purerl-tidal needs BOTH the BEAM toolchain (erlang backend
+        # runtime + rebar3) AND the PureScript toolchain (compile +
+        # tidy) — it's a PureScript source tree that targets Erlang.
+        purerl = pkgs.mkShell {
+          packages = [
+            pkgs.erlang_28
+            pkgs.rebar3
+            pkgs.purs-bin.purs-0_15_15
+            pkgs.spago-unstable
+            pkgs.purs-tidy
+            pkgs.nodejs_22
+          ];
+        };
+
         default = purescript;
+      });
+
+      # Individual tool binaries + an aggregate CLI-tools bundle, so the
+      # fleet can `nix build .#tools` for a single provisioned profile
+      # rather than depending on `nix develop` shells alone.
+      packages = forAllSystems (pkgs: {
+        purs = pkgs.purs-bin.purs-0_15_15;
+        spago = pkgs.spago-unstable;
+        purs-tidy = pkgs.purs-tidy;
+        esbuild = pkgs.esbuild;
+        erlang = pkgs.erlang_28;
+        rebar3 = pkgs.rebar3;
+        # provided at nixpkgs top level (not the overlay); pins the LSP
+        # that cclsp drives against the same purs as the shells.
+        purescript-language-server = pkgs.purescript-language-server;
+
+        # the everyday CLI kit — one buildEnv so `nix profile install
+        # .#tools` (review-gated, not done here) yields one entry.
+        # ffmpeg deliberately excluded: huge closure, decided later.
+        tools = pkgs.buildEnv {
+          name = "afc-cli-tools";
+          paths = [
+            pkgs.gh
+            pkgs.fd
+            pkgs.ripgrep
+            pkgs.cloc
+            pkgs.duckdb
+            pkgs.cmake
+            pkgs.jq
+            pkgs.tree
+            pkgs.tmux
+            pkgs.pandoc
+            pkgs.graphviz
+            pkgs.exiftool
+            pkgs.httpie
+            pkgs.direnv
+            pkgs.git-lfs
+          ];
+        };
       });
     };
 }
