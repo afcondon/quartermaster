@@ -1,0 +1,17 @@
+# The `nix` interpreter column. `backend: cmd: "true"` makes spago compile to
+# CoreFn and do NO JS codegen; bin/verify.sh then runs Nyx (pursnix) on output/
+# — the structural twin of a psgo/purejl column. Depends ONLY on core (both
+# Prim-only), so this column never pulls in a prelude and needs NO JS FFI stub:
+# the throwing ToNix.js that the flat layout required is gone.
+workspace:
+  packageSet:
+    registry: 77.13.1
+  backend:
+    cmd: "true"
+  extraPackages:
+    quartermaster-recipe-core:
+      path: ../../core
+package:
+  name: quartermaster-recipe-nix
+  dependencies:
+    - quartermaster-recipe-core

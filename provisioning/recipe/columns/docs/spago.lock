@@ -1,7 +1,7 @@
 {
   "workspace": {
     "packages": {
-      "quartermaster-recipe": {
+      "quartermaster-recipe-docs": {
         "path": "./",
         "core": {
           "dependencies": [
@@ -9,6 +9,7 @@
             "console",
             "effect",
             "prelude",
+            "quartermaster-recipe-core",
             "strings"
           ]
         },
@@ -666,7 +667,11 @@
         "zipperarray": "2.0.0"
       }
     },
-    "extra_packages": {}
+    "extra_packages": {
+      "quartermaster-recipe-core": {
+        "path": "../../core"
+      }
+    }
   },
   "packages": {
     "arrays": {
@@ -969,6 +974,11 @@
         "prelude",
         "tuples"
       ]
+    },
+    "quartermaster-recipe-core": {
+      "type": "local",
+      "path": "../../core",
+      "dependencies": []
     },
     "refs": {
       "type": "registry",

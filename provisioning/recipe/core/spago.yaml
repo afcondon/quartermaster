@@ -1,0 +1,6 @@
+# The shared core: the Prim-only recipe IR + the `recipe` value. NO
+# dependencies (not even prelude) — which is exactly why it compiles under both
+# the JS backend (docs column) and Nyx (nix column) with no per-backend shim.
+package:
+  name: quartermaster-recipe-core
+  dependencies: []

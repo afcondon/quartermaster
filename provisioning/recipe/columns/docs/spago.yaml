@@ -1,0 +1,20 @@
+# The `docs` interpreter column: the JS backend lowers the shared recipe value
+# to Markdown. A normal spago package depending on core plus the prelude surface
+# ToDocs uses. bin/docs.sh runs `spago run` here and captures the Markdown.
+workspace:
+  packageSet:
+    registry: 77.13.1
+  extraPackages:
+    quartermaster-recipe-core:
+      path: ../../core
+package:
+  name: quartermaster-recipe-docs
+  dependencies:
+    - quartermaster-recipe-core
+    - prelude
+    - arrays
+    - strings
+    - effect
+    - console
+  run:
+    main: Main
