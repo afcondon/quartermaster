@@ -62,6 +62,25 @@
           packages = [ pkgs.go pkgs.gopls ];
         };
 
+        # the Haskell-convergence shell — ONE GHC for the whole estate
+        # (the Haskell-authored backends + ports). ghc98 = 9.8.4, the
+        # nixpkgs cached build; cabal + stack both provided so projects
+        # can keep their existing build driver, with `system-ghc: true`
+        # / `install-ghc: false` in stack.yaml pointing stack at THIS
+        # GHC rather than downloading its own.
+        haskell = pkgs.mkShell {
+          packages = [
+            pkgs.haskell.compiler.ghc98
+            pkgs.cabal-install
+            pkgs.stack
+            # HLS for ghc98 substitutes fully from cache on
+            # aarch64-darwin (788 paths fetched, 0 built) — no
+            # from-source compile, so it earns its place in the shell.
+            pkgs.haskell.packages.ghc98.haskell-language-server
+            pkgs.git # cabal/stack shell out to it
+          ];
+        };
+
         # purerl-tidal needs BOTH the BEAM toolchain (erlang backend
         # runtime + rebar3) AND the PureScript toolchain (compile +
         # tidy) — it's a PureScript source tree that targets Erlang.
@@ -102,6 +121,12 @@
         rustc = pkgs.rustc;
         cargo = pkgs.cargo;
         rust-analyzer = pkgs.rust-analyzer;
+
+        # Haskell-convergence toolchain: ONE GHC (9.8.4, nixpkgs ghc98,
+        # cached) for the whole estate, plus both build drivers.
+        ghc = pkgs.haskell.compiler.ghc98;
+        cabal = pkgs.cabal-install;
+        stack = pkgs.stack;
         # large closure accepted: unlocks removing ~170 brew library
         # formulae that only existed to satisfy ffmpeg.
         ffmpeg = pkgs.ffmpeg;
