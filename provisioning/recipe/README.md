@@ -2,7 +2,7 @@
 
 The substrate's provisioning recipe — which tools go in each work environment —
 written in PureScript instead of by hand in Nix, in a **multi-interpreter**
-shape: **one** shared data-structure value, folded by **two** interpreters.
+shape: **one** shared data-structure value, folded by **three** interpreters.
 
 This is the first real client of the polyglot-template **data axis** (the
 `polyglot-template` B layout, generalized to two axes — see that repo's
@@ -14,17 +14,26 @@ column, the Nix-only interpreter needs **no** JS FFI stub — the throwing
 ```
 core/src/Quartermaster/Recipe/IR.purs
   (Prim-only: types + the `recipe` value — the ONE source of truth,
-   no prelude, so it compiles under BOTH interpreters' backends)
+   no prelude, so it compiles under every interpreter's backend)
                               │
-        ┌─────────────────────┴─────────────────────┐
-        ▼                                            ▼
-columns/nix/  (ToNix.purs + ToNix.nix FFI)    columns/docs/ (ToDocs.purs + Main.purs)
-  Nyx (PureScript → Nix)                        JS backend
-  folds IR → `flake pkgs`                       folds IR → Markdown
-  = { devShells; packages; }                    (Main prints it)
-  PROVEN byte-identical to flake.nix            bin/docs.sh → docs.generated.md
+   ┌──────────────────────────┼──────────────────────────┐
+   ▼                          ▼                          ▼
+columns/nix/            columns/docs/              columns/graph/
+  ToNix.purs + .nix FFI   ToDocs.purs + Main.purs    ToGraph.purs + Main.purs
+  Nyx (PureScript → Nix)  JS backend                 JS backend
+  IR → `flake pkgs`       IR → Markdown              IR → Graphviz DOT
+  = { devShells; packages }  (Main prints it)         (→ SVG via `dot`)
+  PROVEN byte-identical   bin/docs.sh                bin/graph.sh
+   to flake.nix           → docs.generated.md        → recipe.dot + recipe.svg
   bin/verify.sh → "ALL EQUIVALENT"
 ```
+
+Three interpreters close the trilogy the recipe-as-eDSL was meant to serve:
+**(a)** Nix, **(b)** a graphical representation, **(c)** documentation — over one
+value, each an append-only column that never touches `core/`. The graph earns
+its keep: it makes VISIBLE what the flat lists hide — which tools are *shared*
+across shells (amber nodes), showing e.g. that `purerl` is the union shell,
+sharing the PureScript kit with `purescript` and the BEAM kit with `erlang`.
 
 `IR.recipe` is a single PureScript value. `columns/nix` lowers it, via the
 [Nyx](../../../../purescript-backends/purescript-nix) backend, to a Nix function
@@ -54,14 +63,18 @@ B layout makes each lowering a first-class, append-only column.
 | `columns/docs/src/Quartermaster/Recipe/ToDocs.purs` | JS interpreter → Markdown |
 | `columns/docs/src/Main.purs` | JS entry: `log (ToDocs.render IR.recipe)` |
 | `columns/docs/spago.yaml` | JS backend; depends on core + prelude/arrays/strings/effect/console |
+| `columns/graph/src/Quartermaster/Recipe/ToGraph.purs` | JS interpreter → Graphviz DOT (shells + shared tools) |
+| `columns/graph/src/Main.purs` | JS entry: `log (ToGraph.render IR.recipe)` |
 | `verify.nix`, `bin/verify.sh` | drvPath-equivalence proof (Nyx recipe vs live flake.nix) |
 | `bin/docs.sh` | Run the docs column via the JS backend, print + save Markdown |
+| `bin/graph.sh` | Run the graph column, emit `recipe.dot` and (via `dot`) `recipe.svg` |
 
 ## Build & verify
 
 ```bash
-bin/verify.sh   # nix column: spago build (CoreFn) → Nyx → prove hash-equivalence to flake.nix
-bin/docs.sh     # docs column: render the SAME IR value to Markdown (docs.generated.md)
+bin/verify.sh   # nix column:   spago build (CoreFn) → Nyx → prove hash-equivalence to flake.nix
+bin/docs.sh     # docs column:  render the SAME IR value to Markdown (docs.generated.md)
+bin/graph.sh    # graph column: render the SAME IR value to a graph (recipe.dot → recipe.svg)
 ```
 
 `verify.sh` needs `purs` (0.15.x) + `nix` on PATH and the `pursnix` binary built

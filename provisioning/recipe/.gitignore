@@ -3,4 +3,6 @@ output/
 result
 .spago/
 docs.generated.md
+recipe.dot
+recipe.svg
 node_modules/

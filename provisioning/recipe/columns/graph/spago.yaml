@@ -1,0 +1,21 @@
+# The `graph` interpreter column: the JS backend lowers the shared recipe value
+# to a Graphviz DOT graph. A third interpreter over the ONE core value, added
+# append-only (core/ untouched). bin/graph.sh runs `spago run` here and pipes
+# the DOT through `dot` to an SVG.
+workspace:
+  packageSet:
+    registry: 77.13.1
+  extraPackages:
+    quartermaster-recipe-core:
+      path: ../../core
+package:
+  name: quartermaster-recipe-graph
+  dependencies:
+    - quartermaster-recipe-core
+    - prelude
+    - arrays
+    - strings
+    - effect
+    - console
+  run:
+    main: Main
