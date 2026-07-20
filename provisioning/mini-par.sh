@@ -27,7 +27,7 @@ KEY="$HOME/.config/nix/substrate-1.key"
 NIX="/nix/var/nix/profiles/default/bin/nix"
 SYS="aarch64-darwin"
 export PATH="$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH"
-XF="--extra-experimental-features 'nix-command flakes'"
+export NIX_CONFIG="experimental-features = nix-command flakes"
 
 # The 18 quartermaster#packages pins (nix-direnv comes from nixpkgs, added below).
 PKGS=(cabal cargo erlang esbuild ffmpeg ghc go node purescript-language-server \
@@ -54,16 +54,17 @@ echo "Mini quartermaster HEAD (post): $mini_head"
 [ "$mini_head" = "$EXPECT" ] || { echo "FATAL: expected $EXPECT (origin/main), got $mini_head"; exit 1; }
 
 echo "################ B1a: sign + copy 18 closures MBP -> Mini ################"
-paths=()
-for p in "${PKGS[@]}"; do
-  sp="$(eval "$NIX path-info $XF \"$QM_MBP#packages.$SYS.$p\"")" \
-    || { echo "FATAL: could not evaluate $p on the MBP"; exit 1; }
-  paths+=("$sp")
-done
-echo "signing ${#paths[@]} closures with substrate-1 ..."
-eval "$NIX store sign $XF -k \"$KEY\" -r ${paths[*]}"
-echo "copying to Mini (signed; already-cached paths are no-ops) ..."
-eval "$NIX copy $XF --to \"ssh://$MINI\" ${paths[*]}"
+# Pass flake installables straight to sign/copy (NOT hand-parsed store paths):
+# some attrs are multi-output derivations (e.g. ffmpeg -> out/bin/dev/man), and
+# nix resolves every output + its closure itself. No eval, no [*] word-splitting.
+installables=()
+for p in "${PKGS[@]}"; do installables+=("$QM_MBP#packages.$SYS.$p"); done
+echo "signing ${#installables[@]} closures with substrate-1 (already-signed = no-op) ..."
+"$NIX" store sign -k "$KEY" -r "${installables[@]}"
+echo "copying to Mini (signed; -s lets the Mini pull cacheable paths itself) ..."
+# --substitute-on-destination: the Mini fetches anything on cache.nixos.org
+# directly; only the overlay-built (non-cached) paths transfer over ssh.
+"$NIX" copy -s --to "ssh://$MINI" "${installables[@]}"
 
 echo "################ B1b: install 19 pins from Mini's own flake ################"
 ssh "$MINI" 'bash -s' <<'REMOTE'
