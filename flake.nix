@@ -97,6 +97,11 @@
             pkgs.spago-unstable
             pkgs.purs-tidy
             pkgs.nodejs_22
+            pkgs.git # spago shells out to it — same reason as the purescript shell.
+                     # The lesson was learned there but never propagated here; it
+                     # surfaced when purerl-tidal's `spago build` failed on a fresh
+                     # box (the mac-mini) with "Failed to find git". A devShell has a
+                     # toolchain contract that only a real build exercises.
           ];
         };
 
