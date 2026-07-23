@@ -42,6 +42,15 @@
         "test": {
           "dependencies": []
         }
+      },
+      "quartermaster-recipe-core": {
+        "path": "provisioning/recipe/core",
+        "core": {
+          "dependencies": []
+        },
+        "test": {
+          "dependencies": []
+        }
       }
     },
     "package_set": {
@@ -699,6 +708,9 @@
       },
       "bosun-core": {
         "path": "../bosun/core"
+      },
+      "bosun-protocol": {
+        "path": "../bosun/protocol"
       }
     }
   },
@@ -776,6 +788,7 @@
       "dependencies": [
         "argonaut-core",
         "arrays",
+        "bosun-protocol",
         "codec",
         "codec-argonaut",
         "either",
@@ -786,6 +799,16 @@
         "strings",
         "tuples",
         "validation"
+      ]
+    },
+    "bosun-protocol": {
+      "type": "local",
+      "path": "../bosun/protocol",
+      "dependencies": [
+        "codec-argonaut",
+        "maybe",
+        "prelude",
+        "profunctor"
       ]
     },
     "codec": {
