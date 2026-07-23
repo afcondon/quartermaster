@@ -16,3 +16,7 @@ workspace:
       path: ../bosun/core
     bosun-adapters:
       path: ../bosun/adapters
+    # bosun-core depends on bosun-protocol; path packages aren't transitively
+    # auto-registered, so the workspace must declare it explicitly too.
+    bosun-protocol:
+      path: ../bosun/protocol

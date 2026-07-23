@@ -22,6 +22,7 @@ import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Traversable (traverse)
 import Effect (Effect)
 import Effect.Console (log)
+import Quartermaster.Apply (Shell(..), applyPlan, nixDirenvPin, parPins, renderPlan)
 import Quartermaster.Build (buildInvocation, buildPlan)
 import Quartermaster.CLI.Build (runBuildStep)
 import Quartermaster.CLI.IO (argv, readJsonFile, readYamlFile)
@@ -37,7 +38,10 @@ main = do
   let
     rf = takeFlag "--registry" raw
     pf = takeFlag "--pin" rf.rest
-    dr = takeBool "--dry-run" pf.rest
+    ff = takeFlag "--flake" pf.rest
+    sf = takeFlag "--system" ff.rest
+    shf = takeFlag "--shell" sf.rest
+    dr = takeBool "--dry-run" shf.rest
     np = takeBool "--no-push" dr.rest
     args = np.rest
     registry = fromMaybe "localhost:5001" rf.value
@@ -48,7 +52,20 @@ main = do
       runBuild { registry, pin, dryRun: dr.found, push: not np.found } composePath registryPath
     [ "publish", composePath, registryPath ] ->
       runPublish { dryRun: dr.found } composePath registryPath
+    [ "apply", target ] ->
+      runApply
+        { dryRun: dr.found
+        , flake: fromMaybe "github:afcondon/quartermaster" ff.value
+        , system: fromMaybe "x86_64-linux" sf.value
+        , shell: parseShell (fromMaybe "bash" shf.value)
+        }
+        target
     _ -> log usage
+
+parseShell :: String -> Shell
+parseShell = case _ of
+  "zsh" -> Zsh
+  _ -> Bash
 
 usage :: String
 usage =
@@ -62,7 +79,37 @@ usage =
     <> "  quartermaster publish [--dry-run] <compose.yml> <registry.json>\n"
     <> "      ship each static-CDN site to its CDN (the cloudflare-pages-wrangler channel:\n"
     <> "      `npx wrangler pages deploy`). Runs locally, where wrangler + CF auth live.\n"
-    <> "      --dry-run prints the plan only; the publish itself is outward, gated by the verb."
+    <> "      --dry-run prints the plan only; the publish itself is outward, gated by the verb.\n\n"
+    <> "  quartermaster apply [--dry-run] [--flake REF] [--system SYS] [--shell bash|zsh] <target>\n"
+    <> "      bring <target> to the toolchain-floor par: ignition (install Determinate Nix)\n"
+    <> "      then convergence (nix profile install the par pins from the flake). The base\n"
+    <> "      path proven on BlackStar (x86_64-linux self-substitutes from a public flake ref).\n"
+    <> "      --dry-run prints the plan; defaults: flake github:afcondon/quartermaster,\n"
+    <> "      system x86_64-linux, shell bash."
+
+-- | `quartermaster apply` — provision a target to par. This increment prints the
+-- | plan (the proven blackstar-par.sh sequence, derived purely from the spec);
+-- | the effectful ssh runner is the next increment.
+runApply
+  :: { dryRun :: Boolean, flake :: String, system :: String, shell :: Shell }
+  -> String
+  -> Effect Unit
+runApply opts target = do
+  let
+    spec =
+      { flakeRef: opts.flake
+      , system: opts.system
+      , pins: parPins
+      , nixpkgsPins: [ nixDirenvPin ]
+      , shell: opts.shell
+      }
+  log ("quartermaster — apply " <> target <> "  (" <> opts.system <> ", flake " <> opts.flake <> ")")
+  log ""
+  log (renderPlan (applyPlan spec))
+  when (not opts.dryRun) do
+    log ""
+    log "note: the ssh execution edge is not wired yet — this is the dry-run plan."
+    log "run it by hand for now, or re-run with --dry-run to silence this note."
 
 runVerify :: String -> String -> Effect Unit
 runVerify composePath registryPath = do
