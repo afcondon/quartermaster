@@ -15,8 +15,12 @@ module Quartermaster.Apply
   ( Shell(..)
   , ApplySpec
   , ApplyStep
+  , Confidence(..)
   , parPins
   , nixDirenvPin
+  , nixSystem
+  , classify
+  , confidenceLabel
   , applyPlan
   , applyInvocation
   , renderPlan
@@ -27,6 +31,51 @@ import Prelude
 import Bosun.Target (ExecLoc(..), Target, unSshDest)
 import Data.Array as A
 import Data.Foldable (intercalate)
+import Data.Maybe (Maybe(..))
+
+-- | The Target Support Catalog's confidence gradient (the MISU gate). Only
+-- | `KnownGood` provisions without ceremony; everything else demands an explicit
+-- | override that NAMES what it's overriding. A below-known-good install that
+-- | goes green is promoted to known-good — the catalog is earned, not asserted.
+data Confidence = KnownGood | LikelyGood | Unknown | KnownBad
+
+derive instance eqConfidence :: Eq Confidence
+
+confidenceLabel :: Confidence -> String
+confidenceLabel = case _ of
+  KnownGood -> "known-good"
+  LikelyGood -> "likely-good"
+  Unknown -> "unknown"
+  KnownBad -> "known-bad"
+
+-- | Classify a probed target `(os, nix-arch)` against the earned catalog.
+-- | `KnownGood` entries have a real green install behind them (BlackStar for
+-- | x86_64-linux 2026-07-23; the Mini for aarch64-darwin). Their near neighbours
+-- | are `LikelyGood` (plausible, untested → override required).
+classify :: { os :: String, arch :: String } -> Confidence
+classify { os, arch } = case os, arch of
+  "linux", "x86_64" -> KnownGood
+  "darwin", "aarch64" -> KnownGood
+  "darwin", "x86_64" -> LikelyGood
+  "linux", "aarch64" -> LikelyGood
+  _, _ -> Unknown
+
+-- | Map a probed `uname -s` / `uname -m` pair to a Nix `system` double, or
+-- | `Nothing` for a platform we don't recognise (uname's `arm64` ⇒ `aarch64`).
+nixSystem :: String -> String -> Maybe String
+nixSystem unameS unameM = case os, arch of
+  Just o, Just a -> Just (a <> "-" <> o)
+  _, _ -> Nothing
+  where
+  os = case unameS of
+    "Linux" -> Just "linux"
+    "Darwin" -> Just "darwin"
+    _ -> Nothing
+  arch = case unameM of
+    "x86_64" -> Just "x86_64"
+    "arm64" -> Just "aarch64"
+    "aarch64" -> Just "aarch64"
+    _ -> Nothing
 
 -- | The login shell on the target — selects which rc files the toolchain-floor
 -- | lines land in. Bash on Linux (BlackStar), Zsh on macOS (the Mini/MBP).
@@ -69,17 +118,20 @@ nixDirenvPin = "nix-direnv"
 sourceDaemon :: String
 sourceDaemon = ". /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh"
 
--- | Idempotent per-pin install: skip if already in the profile (matched on the
--- | flake-attribute tail), else install from the flake ref.
+-- | Idempotent per-pin install, matched against a ONE-SHOT profile snapshot
+-- | (`$installed`, captured once per phase — see `applyPlan`). Grepping a
+-- | here-string rather than piping `nix profile list` per pin avoids the
+-- | broken-pipe SIGPIPE noise `grep -q` triggers by closing the pipe early, and
+-- | is 19× fewer nix invocations. Skip if already pinned, else install.
 installPin :: ApplySpec -> String -> String
 installPin spec p =
-  "nix profile list | grep -q 'packages\\." <> spec.system <> "\\." <> p <> "$'"
+  "grep -q 'packages\\." <> spec.system <> "\\." <> p <> "$' <<<\"$installed\""
     <> " && echo '  = " <> p <> " (pinned)'"
     <> " || { nix profile install '" <> spec.flakeRef <> "#packages." <> spec.system <> "." <> p <> "' && echo '  + " <> p <> "'; }"
 
 installNixpkgsPin :: String -> String
 installNixpkgsPin np =
-  "nix profile list | grep -q '" <> np <> "'"
+  "grep -q '" <> np <> "' <<<\"$installed\""
     <> " && echo '  = " <> np <> " (pinned)'"
     <> " || { nix profile install 'nixpkgs#" <> np <> "' && echo '  + " <> np <> "'; }"
 
@@ -147,7 +199,10 @@ applyPlan spec =
     }
   , { phase: "apply"
     , commands:
-        [ sourceDaemon, "export NIX_CONFIG='experimental-features = nix-command flakes'" ]
+        [ sourceDaemon
+        , "export NIX_CONFIG='experimental-features = nix-command flakes'"
+        , "installed=\"$(nix profile list 2>/dev/null || true)\""
+        ]
           <> map (installPin spec) spec.pins
           <> map installNixpkgsPin spec.nixpkgsPins
     }

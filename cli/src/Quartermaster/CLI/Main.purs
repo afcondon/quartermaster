@@ -24,6 +24,7 @@ import Effect (Effect)
 import Effect.Console (log)
 import Quartermaster.Apply (Shell(..), applyPlan, nixDirenvPin, parPins, renderPlan)
 import Quartermaster.Build (buildInvocation, buildPlan)
+import Quartermaster.CLI.Apply (mkApplyTarget, runApplyLive)
 import Quartermaster.CLI.Build (runBuildStep)
 import Quartermaster.CLI.IO (argv, readJsonFile, readYamlFile)
 import Quartermaster.CLI.Probe (probeRequirement)
@@ -43,7 +44,8 @@ main = do
     shf = takeFlag "--shell" sf.rest
     dr = takeBool "--dry-run" shf.rest
     np = takeBool "--no-push" dr.rest
-    args = np.rest
+    frc = takeBool "--force" np.rest
+    args = frc.rest
     registry = fromMaybe "localhost:5001" rf.value
     pin = fromMaybe "latest" pf.value
   case args of
@@ -55,9 +57,10 @@ main = do
     [ "apply", target ] ->
       runApply
         { dryRun: dr.found
+        , force: frc.found
         , flake: fromMaybe "github:afcondon/quartermaster" ff.value
         , system: fromMaybe "x86_64-linux" sf.value
-        , shell: parseShell (fromMaybe "bash" shf.value)
+        , shellOverride: map parseShell shf.value
         }
         target
     _ -> log usage
@@ -80,36 +83,40 @@ usage =
     <> "      ship each static-CDN site to its CDN (the cloudflare-pages-wrangler channel:\n"
     <> "      `npx wrangler pages deploy`). Runs locally, where wrangler + CF auth live.\n"
     <> "      --dry-run prints the plan only; the publish itself is outward, gated by the verb.\n\n"
-    <> "  quartermaster apply [--dry-run] [--flake REF] [--system SYS] [--shell bash|zsh] <target>\n"
-    <> "      bring <target> to the toolchain-floor par: ignition (install Determinate Nix)\n"
-    <> "      then convergence (nix profile install the par pins from the flake). The base\n"
-    <> "      path proven on BlackStar (x86_64-linux self-substitutes from a public flake ref).\n"
-    <> "      --dry-run prints the plan; defaults: flake github:afcondon/quartermaster,\n"
-    <> "      system x86_64-linux, shell bash."
+    <> "  quartermaster apply [--dry-run] [--force] [--flake REF] [--shell bash|zsh] <target>\n"
+    <> "      bring <target> (an ssh dest, or `local`) to the toolchain-floor par: probe it,\n"
+    <> "      MISU-gate against the support catalog (non-known-good needs --force), then\n"
+    <> "      ignition (install Determinate Nix) + convergence (nix profile install the par\n"
+    <> "      pins from the flake), streamed live. The base path proven on BlackStar\n"
+    <> "      (x86_64-linux self-substitutes from a public flake ref). --dry-run prints the\n"
+    <> "      plan for --system SYS (default x86_64-linux) without probing; a live run detects\n"
+    <> "      system + shell. Default flake github:afcondon/quartermaster."
 
--- | `quartermaster apply` — provision a target to par. This increment prints the
--- | plan (the proven blackstar-par.sh sequence, derived purely from the spec);
--- | the effectful ssh runner is the next increment.
+-- | `quartermaster apply` — provision a target to par. `--dry-run` prints the
+-- | plan (flag-driven, no probe); a live run probes the target, MISU-gates, and
+-- | streams the phases (Quartermaster.CLI.Apply).
 runApply
-  :: { dryRun :: Boolean, flake :: String, system :: String, shell :: Shell }
+  :: { dryRun :: Boolean, force :: Boolean, flake :: String, system :: String, shellOverride :: Maybe Shell }
   -> String
   -> Effect Unit
-runApply opts target = do
-  let
-    spec =
-      { flakeRef: opts.flake
-      , system: opts.system
-      , pins: parPins
-      , nixpkgsPins: [ nixDirenvPin ]
-      , shell: opts.shell
-      }
-  log ("quartermaster — apply " <> target <> "  (" <> opts.system <> ", flake " <> opts.flake <> ")")
-  log ""
-  log (renderPlan (applyPlan spec))
-  when (not opts.dryRun) do
+runApply opts target =
+  if opts.dryRun then do
+    let
+      spec =
+        { flakeRef: opts.flake
+        , system: opts.system
+        , pins: parPins
+        , nixpkgsPins: [ nixDirenvPin ]
+        , shell: fromMaybe Bash opts.shellOverride
+        }
+    log ("quartermaster — apply " <> target <> "  (dry-run: " <> opts.system <> ", flake " <> opts.flake <> ")")
     log ""
-    log "note: the ssh execution edge is not wired yet — this is the dry-run plan."
-    log "run it by hand for now, or re-run with --dry-run to silence this note."
+    log (renderPlan (applyPlan spec))
+  else
+    runApplyLive
+      { force: opts.force, flake: opts.flake, shellOverride: opts.shellOverride }
+      (mkApplyTarget target)
+      target
 
 runVerify :: String -> String -> Effect Unit
 runVerify composePath registryPath = do
