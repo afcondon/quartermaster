@@ -48,7 +48,7 @@ distinct `ProbeSpec` (see `Quartermaster.Runtime`):
 | `nocwd`        | `quux daemon`  (no `cd`)           | `CommandOnPath quux`, no cwd |
 | `unclassified` | `cd <work> &&`  (empty command)    | `Unknown` → reported, never silently passed |
 | `container`    | `docker compose up`               | `EngineAny` |
-| `remote` *(opt-in)* | `cd /srv/archive && node …` (host macmini) | `CommandOnPath node` over ssh |
+| `remote` *(opt-in)* | `cd /srv/archive && node …` (host examplehost) | `CommandOnPath node` over ssh |
 
 ## The scenarios (the flips)
 

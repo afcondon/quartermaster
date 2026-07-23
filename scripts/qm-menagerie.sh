@@ -62,7 +62,7 @@ write_registry(){
   local remote_row=""
   if [ "${QM_MEN_REMOTE:-0}" = "1" ]; then
     remote_row=',
-    {"id":6,"role":"api","projectName":"remote","projectSlug":"remote","port":8195,"host":"macmini","startCommand":"cd /srv/archive && node server.js --port 8195","url":"http://andrews-mac-mini:8195"}'
+    {"id":6,"role":"api","projectName":"remote","projectSlug":"remote","port":8195,"host":"examplehost","startCommand":"cd /srv/archive && node server.js --port 8195","url":"http://examplehost:8195"}'
   fi
   cat >"$STAGE/registry.json" <<EOF
 {

@@ -22,9 +22,14 @@ import { execSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const PANTRY = process.env.PANTRY_DIR || join(homedir(), ".cache", "ps-pantry");
-const AFC_WORK = "/Users/afc/work/afc-work";
+// the afc-work root: env override, else derived from this script's location
+// (<afc-work>/ShapedSteer/quartermaster/scripts/pantry.mjs -> up four).
+const AFC_WORK =
+  process.env.AFC_WORK ||
+  join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..");
 
 const sh = (cmd, opts = {}) =>
   execSync(cmd, { maxBuffer: 1024 * 1024 * 256, ...opts }).toString();

@@ -14,11 +14,14 @@ export NIX_CONFIG="experimental-features = nix-command flakes"
 
 RECIPE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"     # provisioning/recipe
 NIXCOL="$RECIPE_ROOT/columns/nix"
-export QM_PATH="/Users/afc/work/afc-work/ShapedSteer/quartermaster"
+export QM_PATH="$(cd "$RECIPE_ROOT/../.." && pwd)"                 # the quartermaster repo root
 export RECIPE_OUT="$NIXCOL/output/Quartermaster.Recipe.ToNix"
 
-PURSNIX="$(ls /Users/afc/work/afc-work/purescript-backends/purescript-nix/.stack-work/install/*/*/*/bin/pursnix 2>/dev/null | head -1)"
-[ -n "$PURSNIX" ] || { echo "FATAL: pursnix not built (cd purescript-nix && stack build)"; exit 1; }
+# pursnix (Nyx): env override, then PATH, then the purescript-nix sibling
+# checkout relative to the afc-work root (QM_PATH/../..). No absolute paths.
+PURSNIX="${PURSNIX:-$(command -v pursnix || true)}"
+[ -n "$PURSNIX" ] || PURSNIX="$(ls "$QM_PATH"/../../purescript-backends/purescript-nix/.stack-work/install/*/*/*/bin/pursnix 2>/dev/null | head -1)"
+[ -n "$PURSNIX" ] || { echo "FATAL: pursnix not found (set \$PURSNIX, put it on PATH, or cd purescript-nix && stack build)"; exit 1; }
 
 cd "$NIXCOL"
 echo "==> building nix column (purs $(purs --version); spago backend cmd:true -> CoreFn; IR + ToNix, both Prim-only)"
