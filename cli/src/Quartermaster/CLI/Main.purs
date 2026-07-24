@@ -26,6 +26,7 @@ import Quartermaster.Apply (Shell(..), applyPlan, nixDirenvPin, parPins, renderP
 import Quartermaster.Build (buildInvocation, buildPlan)
 import Quartermaster.CLI.Apply (mkApplyTarget, runApplyLive)
 import Quartermaster.CLI.Build (runBuildStep)
+import Quartermaster.CLI.Exec (runExecLive)
 import Quartermaster.CLI.IO (argv, readJsonFile, readYamlFile)
 import Quartermaster.CLI.Probe (probeRequirement)
 import Quartermaster.CLI.Publish (ensureCustomDomain, runPublishStep)
@@ -37,7 +38,11 @@ main :: Effect Unit
 main = do
   raw <- argv
   let
-    rf = takeFlag "--registry" raw
+    -- everything after the first `--` is a command argv to preserve VERBATIM
+    -- (for `exec`); flags are parsed only from the tokens BEFORE it. The other
+    -- verbs carry no `--`, so `before` is the whole arg list for them.
+    split = splitAtDashDash raw
+    rf = takeFlag "--registry" split.before
     pf = takeFlag "--pin" rf.rest
     ff = takeFlag "--flake" pf.rest
     sf = takeFlag "--system" ff.rest
@@ -63,6 +68,7 @@ main = do
         , shellOverride: map parseShell shf.value
         }
         target
+    [ "exec" ] -> runExec dr.found ff.value split.command
     _ -> log usage
 
 parseShell :: String -> Shell
@@ -90,7 +96,15 @@ usage =
     <> "      pins from the flake), streamed live. The base path proven on BlackStar\n"
     <> "      (x86_64-linux self-substitutes from a public flake ref). --dry-run prints the\n"
     <> "      plan for --system SYS (default x86_64-linux) without probing; a live run detects\n"
-    <> "      system + shell. Default flake github:afcondon/quartermaster."
+    <> "      system + shell. Default flake github:afcondon/quartermaster.\n\n"
+    <> "  quartermaster exec [--flake REF] [--dry-run] -- <cmd> [args...]\n"
+    <> "      run <cmd> in the PROVISIONED environment regardless of the caller's shell:\n"
+    <> "      source the nix daemon profile (which puts nix AND ~/.nix-profile/bin — the par\n"
+    <> "      toolchain — on PATH), then, if the repo declares a flake dev-shell, drop into it.\n"
+    <> "      Resolves the flake from --flake REF, else auto-detects `use flake <ref>` in the\n"
+    <> "      cwd's .envrc, else runs bare against the profile toolchain. Everything after `--`\n"
+    <> "      is the command, verbatim. --dry-run prints the exact script exec would run and\n"
+    <> "      exits 0 without running it. The one rule an agent can follow: build via this."
 
 -- | `quartermaster apply` — provision a target to par. `--dry-run` prints the
 -- | plan (flag-driven, no probe); a live run probes the target, MISU-gates, and
@@ -117,6 +131,18 @@ runApply opts target =
       { force: opts.force, flake: opts.flake, shellOverride: opts.shellOverride }
       (mkApplyTarget target)
       target
+
+-- | `quartermaster exec` — run the post-`--` command in the provisioned
+-- | environment (Quartermaster.CLI.Exec). The command is whatever followed `--`;
+-- | its absence (no `--`, or nothing after it) is a usage error.
+runExec :: Boolean -> Maybe String -> Maybe (Array String) -> Effect Unit
+runExec dryRun explicitFlake = case _ of
+  Just cmd
+    | not (A.null cmd) -> runExecLive dryRun explicitFlake cmd
+  _ -> do
+    log "quartermaster exec: expected a command after `--`, e.g. `quartermaster exec -- spago build`."
+    log ""
+    log usage
 
 runVerify :: String -> String -> Effect Unit
 runVerify composePath registryPath = do
@@ -212,6 +238,15 @@ runPublish opts composePath registryPath = do
         Nothing -> pure unit
     else log ("  ✗ " <> step.service <> " FAILED")
     pure ok
+
+-- | Split the args at the FIRST `--`: `before` is the flag-and-verb portion,
+-- | `command` is the verbatim argv after it (`Nothing` when no `--` is present).
+-- | The `--` separator itself is dropped. This runs before any flag parsing so a
+-- | `--flake`/`--registry` INSIDE the command is never mistaken for our own flag.
+splitAtDashDash :: Array String -> { before :: Array String, command :: Maybe (Array String) }
+splitAtDashDash args = case A.findIndex (_ == "--") args of
+  Just i -> { before: A.take i args, command: Just (A.drop (i + 1) args) }
+  Nothing -> { before: args, command: Nothing }
 
 -- | Pull an optional `<name> <value>` flag out of the args wherever it appears.
 takeFlag :: String -> Array String -> { value :: Maybe String, rest :: Array String }

@@ -66,6 +66,9 @@ build(){
   cp "$QM"/cli/go/quartermaster_io_foreign.go    "$OUT/"
   cp "$QM"/cli/go/quartermaster_probe_foreign.go "$OUT/"
   cp "$QM"/cli/go/quartermaster_build_foreign.go "$OUT/"
+  cp "$QM"/cli/go/quartermaster_apply_foreign.go  "$OUT/"
+  cp "$QM"/cli/go/quartermaster_publish_foreign.go "$OUT/"
+  cp "$QM"/cli/go/quartermaster_exec_foreign.go  "$OUT/"
   log "go build ($(ls "$OUT"/*.go | wc -l | tr -d ' ') Go files; yaml.v3 from cache)"
   (
     cd "$OUT"
