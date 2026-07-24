@@ -24,6 +24,18 @@ runtimes, and asserts two things:
 2. **correctness** — the verdict matches the known ground truth, and *moves* the
    right way when the condition flips.
 
+## The static byte-diff gate (`make conformance`)
+
+The companion lock is `scripts/qm-conformance.sh`, exposed as **`make
+conformance`**. It rebuilds the Gnomon (backend-go) binary and asserts node ≡
+gnomon output for **every verb** — verify, build, publish, apply, exec, and
+usage. Because it rebuilds the binary as its first step under `set -euo
+pipefail`, a broken Go build (e.g. a verb whose `cli/go/*_foreign.go` twin is
+missing) fails the harness rather than silently passing. **Adding or changing a
+verb requires adding a conformance case** — the same discipline bosun's
+`go-conformance.sh` enforces. Run it with both `spago` and `go` on PATH (see the
+Makefile header for the `.#purescript` + `.#go` invocation).
+
 ## Why the static byte-diff (`qm-conformance.sh`) isn't enough
 
 `scripts/qm-conformance.sh` runs both runtimes over committed Bosun fixtures and
