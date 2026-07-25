@@ -43,6 +43,8 @@
             pkgs.purs-tidy
             pkgs.nodejs_22
             pkgs.git # spago shells out to it; not assumed on fleet hosts
+            pkgs.z3 # mycroft's solver backend; homebrew's copy is only a stray llvm dep
+            pkgs.esbuild # spago bundle's bundler
           ];
         };
 
