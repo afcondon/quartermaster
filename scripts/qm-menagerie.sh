@@ -62,16 +62,16 @@ write_registry(){
   local remote_row=""
   if [ "${QM_MEN_REMOTE:-0}" = "1" ]; then
     remote_row=',
-    {"id":6,"role":"api","projectName":"remote","projectSlug":"remote","port":8195,"host":"examplehost","startCommand":"cd /srv/archive && node server.js --port 8195","url":"http://examplehost:8195"}'
+    {"id":6,"role":"api","projectName":"remote","projectId":"remote","port":8195,"host":"examplehost","startCommand":"cd /srv/archive && node server.js --port 8195","url":"http://examplehost:8195"}'
   fi
   cat >"$STAGE/registry.json" <<EOF
 {
   "servers": [
-    {"id":1,"role":"svc","projectName":"onpath","projectSlug":"onpath","port":9991,"host":"mbp","startCommand":"cd $WORK && quux serve --port 9991","url":"http://localhost:9991"},
-    {"id":2,"role":"svc","projectName":"binary","projectSlug":"binary","port":9992,"host":"mbp","startCommand":"cd $WORK && $BIN_DIR/blob run","url":"http://localhost:9992"},
-    {"id":3,"role":"svc","projectName":"nocwd","projectSlug":"nocwd","port":9993,"host":"mbp","startCommand":"quux daemon","url":"http://localhost:9993"},
-    {"id":4,"role":"svc","projectName":"unclassified","projectSlug":"unclassified","port":9994,"host":"mbp","startCommand":"cd $WORK && ","url":"http://localhost:9994"},
-    {"id":5,"role":"svc","projectName":"container","projectSlug":"container","port":9995,"host":"mbp","startCommand":"docker compose up","url":"http://localhost:9995"}${remote_row}
+    {"id":1,"role":"svc","projectName":"onpath","projectId":"onpath","port":9991,"host":"mbp","startCommand":"cd $WORK && quux serve --port 9991","url":"http://localhost:9991"},
+    {"id":2,"role":"svc","projectName":"binary","projectId":"binary","port":9992,"host":"mbp","startCommand":"cd $WORK && $BIN_DIR/blob run","url":"http://localhost:9992"},
+    {"id":3,"role":"svc","projectName":"nocwd","projectId":"nocwd","port":9993,"host":"mbp","startCommand":"quux daemon","url":"http://localhost:9993"},
+    {"id":4,"role":"svc","projectName":"unclassified","projectId":"unclassified","port":9994,"host":"mbp","startCommand":"cd $WORK && ","url":"http://localhost:9994"},
+    {"id":5,"role":"svc","projectName":"container","projectId":"container","port":9995,"host":"mbp","startCommand":"docker compose up","url":"http://localhost:9995"}${remote_row}
   ]
 }
 EOF
