@@ -74,6 +74,16 @@ stepFor service host chan url = case chan of
   --      auto-create it (a first publish fails "project does not exist"), and
   --      creating the CDN project IS provisioning; `|| true` keeps it idempotent
   --      when it already exists (the deploy is the step whose success is the verdict).
+  --
+  --      `--force` is load-bearing (wrangler 4.131, met 2026-09-14 publishing
+  --      hylograph-rebus). Without it, `pages project create` DELEGATES to the
+  --      Workers-based successor to Pages, which looks for static files in the
+  --      CURRENT WORKING DIRECTORY — quartermaster's own, not artifactDir — finds
+  --      none, and aborts having created nothing: "Could not detect a directory
+  --      containing static files". The deploy then fails "project does not exist",
+  --      so a first publish of any new site is impossible. wrangler's own notice
+  --      says --force is needed only for that first create; it is harmless on the
+  --      later ones, which fail "already exists" into the `|| true` either way.
   --   2. STAGE a clean copy — `wrangler pages deploy` serves the artifact dir
   --      WHOLESALE and does NOT honour `.assetsignore` (a Workers-assets feature,
   --      not Pages), so infra/meta files sitting next to the site (the x-bosun
@@ -89,7 +99,7 @@ stepFor service host chan url = case chan of
       , dest: r.cfProject
       , url
       , commands:
-          [ "npx wrangler pages project create " <> r.cfProject <> " --production-branch main || true"
+          [ "npx wrangler pages project create " <> r.cfProject <> " --production-branch main --force || true"
           , "rm -rf " <> stage <> " && mkdir -p " <> stage
               <> " && rsync -a " <> rsyncExcludes <> " " <> unAbsPath r.artifactDir <> "/ " <> stage <> "/"
           , "npx wrangler pages deploy " <> stage
