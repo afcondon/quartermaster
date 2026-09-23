@@ -129,8 +129,25 @@
         # the devShells byte-for-byte.
         node = pkgs.nodejs_22;
         go = pkgs.go;
-        python = pkgs.python313;
         rustc = pkgs.rustc;
+
+        # Python has been stdlib-only by habit rather than by decision: every
+        # tool the estate has written (worklog-server, the msm helpers, the
+        # marginalia and podcast scripts) imports nothing outside it, so the
+        # bare interpreter was never found wanting and nobody noticed it was
+        # bare. `numpy` is the first exception, added 2026-09-23 for audio
+        # analysis — and the list is declared HERE rather than pip-installed,
+        # because a Nix interpreter's site-packages is read-only and
+        # `pip install --user` would shadow it: exactly the per-machine drift
+        # this flake exists to remove, reintroduced by the obvious shortcut.
+        #
+        # Add to this list as a dependency is found. A package that is needed
+        # and undeclared is invisible until something fails on one machine and
+        # not another, which is the failure mode the whole substrate is aimed
+        # at.
+        python = pkgs.python313.withPackages (ps: with ps; [
+          numpy
+        ]);
         cargo = pkgs.cargo;
         rust-analyzer = pkgs.rust-analyzer;
 
