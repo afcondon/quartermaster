@@ -20,6 +20,9 @@ module Quartermaster.Brew
   , brewDumpCommand
   , renderBrewDrift
   , renderBrewUnreadable
+  , BrewEffect(..)
+  , brewEffect
+  , brewWrapScript
   ) where
 
 import Prelude
@@ -31,6 +34,7 @@ import Data.Set (Set)
 import Data.Set as Set
 import Data.String as S
 import Data.String.Pattern (Pattern(..))
+import Quartermaster.Exec (shellQuote)
 
 -- | The three Brewfile kinds that are brew's own. `vscode`, `mas`, `go`, … lines
 -- | are other package managers riding on `brew bundle`, and are excluded from
@@ -96,10 +100,15 @@ brewDrift { declared, installed } =
 -- | default PATH.
 brewDumpCommand :: String
 brewDumpCommand =
-  "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH"
-    <> " HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 HOMEBREW_NO_ANALYTICS=1"
-    <> " brew bundle dump --file=- --tap --formula --cask"
-    <> " --no-vscode --no-mas --no-go --no-cargo --no-uv --no-npm"
+  "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH " <> quietEnv <> " brew bundle dump --file=- " <> dumpScope
+
+quietEnv :: String
+quietEnv = "HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 HOMEBREW_NO_ANALYTICS=1"
+
+-- | What a Brewfile tracks: brew's own three kinds, none of the package
+-- | managers `brew bundle` can also drive.
+dumpScope :: String
+dumpScope = "--tap --formula --cask --no-vscode --no-mas --no-go --no-cargo --no-uv --no-npm"
 
 -- | The drift report: a verdict line first (so a probe can read line one), then
 -- | the missing and extra entries grouped by kind, in Brewfile syntax so a line
@@ -136,3 +145,73 @@ kindWord = case _ of
   Tap -> "tap"
   Formula -> "brew"
   Cask -> "cask"
+
+-- | Does this brew invocation change what a Brewfile records? Only these
+-- | subcommands do; everything else (list, info, search, services, doctor, …)
+-- | passes through with nothing to record. `bundle` mutates except for its
+-- | read-only subcommands.
+data BrewEffect = ReadOnly | Mutating
+
+derive instance Eq BrewEffect
+
+brewEffect :: Array String -> BrewEffect
+brewEffect args = case A.uncons (A.filter (not <<< S.contains (Pattern "-") <<< S.take 1) args) of
+  Nothing -> ReadOnly
+  Just { head: sub, tail } -> case sub of
+    "bundle" -> case A.head tail of
+      Just s | A.elem s [ "dump", "check", "list", "exec", "sh", "env", "edit" ] -> ReadOnly
+      _ -> Mutating
+    s | A.elem s mutatingSubcommands -> Mutating
+    _ -> ReadOnly
+
+mutatingSubcommands :: Array String
+mutatingSubcommands =
+  [ "install", "reinstall", "uninstall", "remove", "rm", "upgrade", "tap", "untap", "autoremove" ]
+
+-- | The whole `quartermaster brew -- <args>` run, as one bash script: run the
+-- | REAL brew with the caller's args, then — for a mutating command, whatever
+-- | its exit status, since a partly-failed install still changed the host —
+-- | re-dump the host's Brewfile and commit that one file. Brew's exit status is
+-- | the script's, so the wrapper is transparent to anything scripting brew.
+-- |
+-- | This RECORDS, it does not gate: brew still changes by other routes (an
+-- | absolute path, a launchd PATH, a self-updating cask, a .pkg), and
+-- | `brew check` remains the backstop for those.
+-- |
+-- | The Brewfile comes from QUARTERMASTER_BREWFILE, which the private fleet's
+-- | shim sets, so this public tool never learns where a fleet keeps its
+-- | declarations. Unset, the command still runs and says it was not recorded.
+-- | QUARTERMASTER_BREW_ACTIVE tells the shim to step aside should anything brew
+-- | runs call `brew` again, and the real brew is always called by absolute
+-- | path, so the wrapper can never recurse into itself.
+brewWrapScript :: Array String -> String
+brewWrapScript args =
+  intercalate "\n" $
+    [ "export QUARTERMASTER_BREW_ACTIVE=1"
+    , "B=/opt/homebrew/bin/brew; [ -x \"$B\" ] || B=/usr/local/bin/brew"
+    , "\"$B\" " <> intercalate " " (map shellQuote args)
+    , "rc=$?"
+    ]
+      <> (if brewEffect args == Mutating then record else [])
+      <> [ "exit $rc" ]
+  where
+  say msg = "echo " <> shellQuote ("quartermaster brew: " <> msg) <> " >&2"
+  message = shellQuote ("brew " <> intercalate " " args <> ": recorded by quartermaster brew")
+  record =
+    [ "bf=\"${QUARTERMASTER_BREWFILE:-}\""
+    , "if [ -z \"$bf\" ]; then"
+    , "  " <> say "QUARTERMASTER_BREWFILE is unset, so this change is NOT recorded"
+    , "elif ! " <> quietEnv <> " \"$B\" bundle dump --file=\"$bf\" --force " <> dumpScope <> " >/dev/null 2>&1; then"
+    , "  " <> say "could not re-dump the Brewfile; run `quartermaster brew check` to see the drift"
+    , "else"
+    , "  d=$(dirname \"$bf\")"
+    , "  if ! git -C \"$d\" rev-parse >/dev/null 2>&1; then"
+    , "    " <> say "Brewfile re-dumped (not in a git repo, so not committed)"
+    , "  elif git -C \"$d\" diff --quiet -- \"$bf\" && git -C \"$d\" ls-files --error-unmatch -- \"$bf\" >/dev/null 2>&1; then"
+    , "    " <> say "Brewfile unchanged"
+    , "  else"
+    , "    git -C \"$d\" diff -U0 -- \"$bf\" | grep -E '^[-+](tap|brew|cask) ' | sed 's/^/quartermaster brew: recorded /' >&2"
+    , "    git -C \"$d\" add -- \"$bf\" && git -C \"$d\" commit -q -m " <> message <> " -- \"$bf\" >&2"
+    , "  fi"
+    , "fi"
+    ]

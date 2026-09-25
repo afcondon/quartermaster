@@ -14,6 +14,10 @@
 -- |   quartermaster brew check <host> <Brewfile>
 -- |     read-only drift between a host's declared Brewfile and what its brew
 -- |     reports. Tracks brew; never installs (Quartermaster.Brew).
+-- |
+-- |   quartermaster brew [--dry-run] -- <brew args…>
+-- |     run the real brew, then record any change it made in the Brewfile named
+-- |     by QUARTERMASTER_BREWFILE (re-dump + commit that one file).
 module Quartermaster.CLI.Main where
 
 import Prelude
@@ -33,8 +37,8 @@ import Quartermaster.Apply (Shell(..), applyPlan, nixDirenvPin, parPins, renderP
 import Quartermaster.Build (buildInvocation, buildPlan)
 import Quartermaster.CLI.Apply (mkApplyTarget, runApplyLive)
 import Quartermaster.CLI.Build (runBuildStep)
-import Quartermaster.CLI.Exec (runExecLive)
-import Quartermaster.Brew (brewDrift, brewDumpCommand, parseBrewfile, renderBrewDrift, renderBrewUnreadable)
+import Quartermaster.CLI.Exec (runExecLive, runScriptLive)
+import Quartermaster.Brew (brewDrift, brewDumpCommand, brewWrapScript, parseBrewfile, renderBrewDrift, renderBrewUnreadable)
 import Quartermaster.CLI.IO (argv, readJsonFile, readTextFile, readYamlFile)
 import Quartermaster.CLI.Probe (probeRequirement, runOn)
 import Quartermaster.CLI.Publish (ensureCustomDomain, runPublishStep)
@@ -78,6 +82,7 @@ main = do
         target
     [ "exec" ] -> runExec dr.found ff.value split.command
     [ "brew", "check", host, brewfile ] -> runBrewCheck host brewfile
+    [ "brew" ] -> runBrewWrap dr.found split.command
     _ -> log usage
 
 parseShell :: String -> Shell
@@ -117,7 +122,13 @@ usage =
     <> "  quartermaster brew check <host> <Brewfile>\n"
     <> "      read-only drift between <host>'s declared Brewfile and what its brew reports\n"
     <> "      (`brew bundle dump`, auto-update off; ssh-wrapped for a remote host). Presence\n"
-    <> "      only: taps, formulae, casks. Brew is TRACKED, not managed — this never installs."
+    <> "      only: taps, formulae, casks. Brew is TRACKED, not managed — this never installs.\n\n"
+    <> "  quartermaster brew [--dry-run] -- <brew args...>\n"
+    <> "      run the real brew (by absolute path) with <brew args>; if the command changes\n"
+    <> "      what a Brewfile records (install, uninstall, upgrade, tap, ...), re-dump the\n"
+    <> "      Brewfile named by QUARTERMASTER_BREWFILE and commit that one file. Brew's exit\n"
+    <> "      status is passed through. It records; it does not gate. --dry-run prints the\n"
+    <> "      script without running it."
 
 -- | `quartermaster apply` — provision a target to par. `--dry-run` prints the
 -- | plan (flag-driven, no probe); a live run probes the target, MISU-gates, and
@@ -172,6 +183,18 @@ runBrewCheck host brewfile = case Map.lookup (mkHost host) defaultTargets of
     log $
       if dump.ok then renderBrewDrift ctx (brewDrift { declared, installed: parseBrewfile dump.out })
       else renderBrewUnreadable ctx
+
+-- | `quartermaster brew -- <args>` — the recording wrapper the fleet's `brew`
+-- | shim routes through (Quartermaster.Brew.brewWrapScript).
+runBrewWrap :: Boolean -> Maybe (Array String) -> Effect Unit
+runBrewWrap dryRun = case _ of
+  Just args
+    | not (A.null args) ->
+        if dryRun then log (brewWrapScript args) else runScriptLive (brewWrapScript args)
+  _ -> do
+    log "quartermaster brew: expected brew's arguments after `--`, e.g. `quartermaster brew -- install tmux`."
+    log ""
+    log usage
 
 runVerify :: String -> String -> Effect Unit
 runVerify composePath registryPath = do

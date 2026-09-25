@@ -14,6 +14,7 @@
 -- | stderr passes straight through, which is what an agent build wrapper needs.
 module Quartermaster.CLI.Exec
   ( runExecLive
+  , runScriptLive
   ) where
 
 import Prelude
@@ -53,6 +54,11 @@ runExecLive dryRun explicitFlake command = do
       pure (if r.found then parseFlakeRef r.contents else Nothing)
   let script = execScript { flakeRef, command }
   if dryRun then log script
-  else do
-    code <- runEffectFn1 streamImpl script
-    runEffectFn1 setExitCode code
+  else runScriptLive script
+
+-- | Run an already-rendered bash script with live stdio and make its exit
+-- | status quartermaster's. The shared tail of `exec` and `brew --`.
+runScriptLive :: String -> Effect Unit
+runScriptLive script = do
+  code <- runEffectFn1 streamImpl script
+  runEffectFn1 setExitCode code

@@ -9,13 +9,14 @@
 #     export PATH="$(nix develop .#go --command dirname "$(which go)"):$PATH"
 #     make conformance'
 
-.PHONY: help build conformance menagerie
+.PHONY: help build conformance menagerie install
 
 help:
 	@echo "Quartermaster targets:"
 	@echo "  make build        spago build (PureScript)"
 	@echo "  make conformance  node CLI ≡ Gnomon (backend-go) for EVERY verb (byte-diff)"
 	@echo "  make menagerie    dual-runtime behavioural probe tests"
+	@echo "  make install      build the Gnomon (Go) binary to \$$PREFIX/quartermaster (default ~/.local/bin)"
 
 build:
 	spago build
@@ -29,3 +30,13 @@ conformance:
 
 menagerie:
 	scripts/qm-menagerie.sh
+
+# The installed `quartermaster` is the Gnomon (backend-go) build: Go is the
+# reference implementation, the node CLI is the development column. Needs spago
+# and go on PATH, like `make conformance`. Same-arch hosts can take the binary
+# as is: it is a single static Go executable.
+PREFIX ?= $(HOME)/.local/bin
+install:
+	mkdir -p $(PREFIX)
+	BIN=$(PREFIX)/quartermaster scripts/gnomon-quartermaster.sh >/dev/null
+	@echo "installed $(PREFIX)/quartermaster (Gnomon build)"

@@ -17,6 +17,7 @@ module Quartermaster.Exec
   ( ExecSpec
   , execScript
   , parseFlakeRef
+  , shellQuote
   ) where
 
 import Prelude

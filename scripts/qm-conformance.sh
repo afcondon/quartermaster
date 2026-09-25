@@ -19,7 +19,9 @@
 #   exec    — --dry-run -- <cmd> (prints the script it would run; --dry-run parsed
 #             BEFORE the `--` split, so it's never mistaken for the wrapped command)
 #   brew    — check against the LIVE local brew (read-only) with a synthetic
-#             Brewfile, and the unknown-host refusal
+#             Brewfile, and the unknown-host refusal; the recording wrapper
+#             `brew --dry-run -- …` for a mutating and a read-only command, and
+#             its missing-args error
 #   usage   — no-args and unknown-verb (the same pure `usage` value both emit)
 #
 # Output ordering is made deterministic in the pure core (Verify.requirementsOf
@@ -100,6 +102,10 @@ assert_raw "flake dev-shell + argv"         -- exec --dry-run --flake ./repo#dev
 echo "brew check:"
 assert_raw "synthetic Brewfile vs live local brew" -- brew check mbp "$QM/test/fixtures/brew/Brewfile"
 assert_raw "unknown host refused"                  -- brew check nosuchhost "$QM/test/fixtures/brew/Brewfile"
+assert_raw "wrap: mutating (records), quoted arg"   -- brew --dry-run -- install --cask "black'hole-16ch"
+assert_raw "wrap: read-only (no record step)"       -- brew --dry-run -- list --versions
+assert_raw "wrap: bundle dump is read-only"         -- brew --dry-run -- bundle dump --file=-
+assert_raw "wrap: no args after --"                 -- brew --dry-run --
 
 echo "usage:"
 assert_raw "no args"      --
