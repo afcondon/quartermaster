@@ -10,14 +10,21 @@
 -- |     docker build+push plan that produces the pinned image Bosun then runs
 -- |     (build-once-ship). Dry-run for now — a live push is outward, gated like
 -- |     Bosun's apply was.
+-- |
+-- |   quartermaster brew check <host> <Brewfile>
+-- |     read-only drift between a host's declared Brewfile and what its brew
+-- |     reports. Tracks brew; never installs (Quartermaster.Brew).
 module Quartermaster.CLI.Main where
 
 import Prelude
 
 import Bosun.Adapters.Compose (ingestCompose)
 import Bosun.Adapters.Registry (ingestRegistry)
+import Bosun.Atoms (mkHost, unHost)
 import Bosun.Target (defaultTargets, isRemote, resolveTarget)
 import Data.Array as A
+import Data.Foldable (intercalate)
+import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Traversable (traverse)
 import Effect (Effect)
@@ -27,8 +34,9 @@ import Quartermaster.Build (buildInvocation, buildPlan)
 import Quartermaster.CLI.Apply (mkApplyTarget, runApplyLive)
 import Quartermaster.CLI.Build (runBuildStep)
 import Quartermaster.CLI.Exec (runExecLive)
-import Quartermaster.CLI.IO (argv, readJsonFile, readYamlFile)
-import Quartermaster.CLI.Probe (probeRequirement)
+import Quartermaster.Brew (brewDrift, brewDumpCommand, parseBrewfile, renderBrewDrift, renderBrewUnreadable)
+import Quartermaster.CLI.IO (argv, readJsonFile, readTextFile, readYamlFile)
+import Quartermaster.CLI.Probe (probeRequirement, runOn)
 import Quartermaster.CLI.Publish (ensureCustomDomain, runPublishStep)
 import Quartermaster.Publish (automated, publishPlan, publishShellLine)
 import Quartermaster.Report (renderBuild, renderPublish, renderVerify)
@@ -69,6 +77,7 @@ main = do
         }
         target
     [ "exec" ] -> runExec dr.found ff.value split.command
+    [ "brew", "check", host, brewfile ] -> runBrewCheck host brewfile
     _ -> log usage
 
 parseShell :: String -> Shell
@@ -104,7 +113,11 @@ usage =
     <> "      Resolves the flake from --flake REF, else auto-detects `use flake <ref>` in the\n"
     <> "      cwd's .envrc, else runs bare against the profile toolchain. Everything after `--`\n"
     <> "      is the command, verbatim. --dry-run prints the exact script exec would run and\n"
-    <> "      exits 0 without running it. The one rule an agent can follow: build via this."
+    <> "      exits 0 without running it. The one rule an agent can follow: build via this.\n\n"
+    <> "  quartermaster brew check <host> <Brewfile>\n"
+    <> "      read-only drift between <host>'s declared Brewfile and what its brew reports\n"
+    <> "      (`brew bundle dump`, auto-update off; ssh-wrapped for a remote host). Presence\n"
+    <> "      only: taps, formulae, casks. Brew is TRACKED, not managed — this never installs."
 
 -- | `quartermaster apply` — provision a target to par. `--dry-run` prints the
 -- | plan (flag-driven, no probe); a live run probes the target, MISU-gates, and
@@ -143,6 +156,22 @@ runExec dryRun explicitFlake = case _ of
     log "quartermaster exec: expected a command after `--`, e.g. `quartermaster exec -- spago build`."
     log ""
     log usage
+
+-- | `quartermaster brew check` — the host must be a KNOWN tag: `resolveTarget`
+-- | would quietly treat a typo as local and report this machine's drift under
+-- | another machine's name.
+runBrewCheck :: String -> String -> Effect Unit
+runBrewCheck host brewfile = case Map.lookup (mkHost host) defaultTargets of
+  Nothing ->
+    log ("quartermaster brew check: unknown host `" <> host <> "` (known: "
+      <> intercalate ", " (map unHost (A.fromFoldable (Map.keys defaultTargets))) <> ")")
+  Just target -> do
+    declared <- parseBrewfile <$> readTextFile brewfile
+    dump <- runOn target brewDumpCommand
+    let ctx = { host, brewfile }
+    log $
+      if dump.ok then renderBrewDrift ctx (brewDrift { declared, installed: parseBrewfile dump.out })
+      else renderBrewUnreadable ctx
 
 runVerify :: String -> String -> Effect Unit
 runVerify composePath registryPath = do

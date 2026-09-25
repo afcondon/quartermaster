@@ -18,6 +18,8 @@
 #   apply   — --dry-run --system <sys> [--shell …] <target> (linux+darwin, both shells)
 #   exec    — --dry-run -- <cmd> (prints the script it would run; --dry-run parsed
 #             BEFORE the `--` split, so it's never mistaken for the wrapped command)
+#   brew    — check against the LIVE local brew (read-only) with a synthetic
+#             Brewfile, and the unknown-host refusal
 #   usage   — no-args and unknown-verb (the same pure `usage` value both emit)
 #
 # Output ordering is made deterministic in the pure core (Verify.requirementsOf
@@ -94,6 +96,10 @@ assert_raw "darwin, --shell zsh"           -- apply --dry-run --system aarch64-d
 echo "exec --dry-run:"
 assert_raw "bare passthrough (spago build)" -- exec --dry-run -- spago build
 assert_raw "flake dev-shell + argv"         -- exec --dry-run --flake ./repo#dev -- echo hi there
+
+echo "brew check:"
+assert_raw "synthetic Brewfile vs live local brew" -- brew check mbp "$QM/test/fixtures/brew/Brewfile"
+assert_raw "unknown host refused"                  -- brew check nosuchhost "$QM/test/fixtures/brew/Brewfile"
 
 echo "usage:"
 assert_raw "no args"      --

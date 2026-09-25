@@ -9,7 +9,7 @@
 -- | so the target's `envPrefix` (e.g. the MacMini's PATH covering homebrew /
 -- | Docker Desktop) is prepended exactly as Bosun does for its remote commands —
 -- | otherwise `command -v julia` would miss a perfectly-installed julia.
-module Quartermaster.CLI.Probe (probeRequirement) where
+module Quartermaster.CLI.Probe (probeRequirement, runOn) where
 
 import Prelude
 

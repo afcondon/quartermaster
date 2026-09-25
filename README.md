@@ -54,6 +54,19 @@ it). **Bosun never invokes the build toolchain.**
   quartermaster publish <compose.yml> <registry.json>
   ```
 
+- **`quartermaster brew check` — DONE (local + remote).** Homebrew is *tracked,
+  not managed*. Nix owns the toolchain par; what's left in brew on a Mac is mostly
+  casks (drivers, GUI apps, fonts), which must not install unattended because a
+  driver cask can restart `coreaudiod` under a running rig. A host's Brewfile is
+  a declaration, and this reports drift against the host's own
+  `brew bundle dump`: taps, formulae and casks, presence only, with brew's
+  auto-update forced off so the check really is read-only. An unknown host tag
+  is refused rather than silently checked locally.
+
+  ```
+  quartermaster brew check <host> <Brewfile>
+  ```
+
 - **Native backend-go binary — DONE (Node-free).** Exactly like `gnomon-bosun`:
   `scripts/gnomon-quartermaster.sh` transpiles the *real* `Quartermaster.CLI.Main`
   to a single native Go binary (via backend-go) — no Node at runtime. It reads

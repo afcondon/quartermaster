@@ -1,0 +1,13 @@
+# A synthetic Brewfile for the conformance harness: every parser path, no real
+# host's inventory. Run against the live local brew, so most of it reports as
+# drift — the point is that node and gnomon report the SAME drift.
+tap "homebrew/services"
+
+# a formula with trailing options
+brew "tmux", link: true
+brew "gh"
+brew "qm-conformance-surely-not-installed"
+
+cask "blackhole-16ch"
+vscode "ignored.because-not-brew"
+not-a-kind "ignored"

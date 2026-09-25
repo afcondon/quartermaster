@@ -54,6 +54,16 @@ var Quartermaster_CLI_IO_readYamlImpl any = func(args ...any) any {
 	return ioNormalizeYaml(v)
 }
 
+// readTextImpl :: EffectFn1 String String — read a file as text (a Brewfile).
+var Quartermaster_CLI_IO_readTextImpl any = func(args ...any) any {
+	path := args[0].(string)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		panic("readText: " + err.Error())
+	}
+	return string(data)
+}
+
 // argv :: Effect (Array String) — the args after the binary name (node's
 // process.argv.slice(2) ≡ a native binary's os.Args[1:]).
 var Quartermaster_CLI_IO_argv any = func() any {

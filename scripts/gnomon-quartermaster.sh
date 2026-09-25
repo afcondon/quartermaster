@@ -17,10 +17,11 @@
 # Covers BOTH verbs Node-free:  verify <compose> <registry>
 #                               build [--registry R] [--pin P] <compose> <registry>
 #
-# Shared library foreigns (argonaut / foreign-object) come from the SIBLING Bosun
-# repo's conformance/go — Quartermaster already hard-depends on ../bosun via spago
-# path-imports, so reusing its decode twins (rather than duplicating them) keeps
-# one source of truth until the per-backend runtime-libraries repo exists.
+# Library foreigns (argonaut / foreign-object) come from backend-go's own
+# `foreign/` layer, which `bin/backend-go` supplies. They used to be copied from
+# the sibling Bosun repo's conformance/go, until Bosun moved them upstream on
+# 2026-08-24 (bosun 7ead418); this script kept copying them, and its Go column
+# stayed red for a month until `brew check` needed it (2026-09-25).
 #
 # Usage:  scripts/gnomon-quartermaster.sh <verb> [args…]   (same args as node CLI)
 #   e.g.  scripts/gnomon-quartermaster.sh verify fixtures/menagerie/compose.yml fixtures/menagerie/registry.json
@@ -44,7 +45,9 @@ stale(){
   [ -n "$(find "$QM/cli/go" -name '*.go' -newer "$BIN" -print -quit 2>/dev/null)" ] && return 0
   # shared bosun-core/adapters sources (path-imported) also affect the build
   [ -n "$(find "$BOSUN/core" "$BOSUN/adapters" -name '*.purs' -newer "$BIN" -print -quit 2>/dev/null)" ] && return 0
-  [ -n "$(find "$BOSUN/conformance/go" -maxdepth 1 \( -name 'argonaut_*.go' -o -name 'foreign_object_*.go' \) -newer "$BIN" -print -quit 2>/dev/null)" ] && return 0
+  # backend-go's runtime and per-package foreign/ layer, so an upstream fix
+  # reaches the cached binary (the same watch gnomon-bosun.sh keeps)
+  [ -n "$(find "$BACKEND_GO/runtime.go" "$BACKEND_GO/foreign" -newer "$BIN" -print -quit 2>/dev/null)" ] && return 0
   return 1
 }
 
@@ -55,13 +58,12 @@ build(){
   ( cd "$QM" && spago build ) >&2 || { log "spago build failed"; exit 1; }
   log "backend-go transpile (corefn -> Go, pruned to $MAIN)"
   rm -rf "$OUT"
-  ( cd "$BACKEND_GO" && spago run -- --corefn-dir "$QM/output" --output-dir "$OUT" --main "$MAIN" ) >&2 \
+  # CWD must be $QM: CoreFn modulePath is relative to where spago built, and
+  # bin/backend-go resolves foreigns beside each .purs from it (Bosun's, for the
+  # path-imported bosun-core) and adds the backend's own foreign/ layer.
+  ( cd "$QM" && "$BACKEND_GO/bin/backend-go" --corefn-dir "$QM/output" --output-dir "$OUT" --main "$MAIN" ) >&2 \
     || { log "backend-go transpile failed"; exit 1; }
   cp "$BACKEND_GO/runtime.go" "$OUT/runtime.go"
-  # library decode foreigns (shared, from the sibling bosun repo)
-  cp "$BOSUN"/conformance/go/argonaut_core_foreign.go   "$OUT/"
-  cp "$BOSUN"/conformance/go/argonaut_parser_foreign.go "$OUT/"
-  cp "$BOSUN"/conformance/go/foreign_object_foreign.go  "$OUT/"
   # Quartermaster's own CLI-edge twins (REAL Quartermaster_CLI_* symbols)
   cp "$QM"/cli/go/quartermaster_io_foreign.go    "$OUT/"
   cp "$QM"/cli/go/quartermaster_probe_foreign.go "$OUT/"

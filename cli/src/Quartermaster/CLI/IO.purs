@@ -6,6 +6,7 @@
 module Quartermaster.CLI.IO
   ( readYamlFile
   , readJsonFile
+  , readTextFile
   , argv
   ) where
 
@@ -15,6 +16,7 @@ import Effect.Uncurried (EffectFn1, runEffectFn1)
 
 foreign import readYamlImpl :: EffectFn1 String Json
 foreign import readJsonImpl :: EffectFn1 String Json
+foreign import readTextImpl :: EffectFn1 String String
 foreign import argv :: Effect (Array String)
 
 readYamlFile :: String -> Effect Json
@@ -22,3 +24,7 @@ readYamlFile = runEffectFn1 readYamlImpl
 
 readJsonFile :: String -> Effect Json
 readJsonFile = runEffectFn1 readJsonImpl
+
+-- | Read a file as UTF-8 text (a Brewfile).
+readTextFile :: String -> Effect String
+readTextFile = runEffectFn1 readTextImpl
