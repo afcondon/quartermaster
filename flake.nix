@@ -49,7 +49,8 @@
         };
 
         rust = pkgs.mkShell {
-          packages = [ pkgs.rustc pkgs.cargo ];
+          # cmake: crates that build C++ with it (Diaphus's rusty_link, Ableton Link)
+          packages = [ pkgs.rustc pkgs.cargo pkgs.cmake ];
         };
 
         erlang = pkgs.mkShell {
