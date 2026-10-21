@@ -31,37 +31,47 @@
         }));
     in
     {
-      devShells = forAllSystems (pkgs: rec {
+      devShells = forAllSystems (pkgs:
+      let
+        # Every shell carries git. On macOS mkShell sets DEVELOPER_DIR to
+        # the Nix apple-sdk, and Apple's /usr/bin/git follows DEVELOPER_DIR,
+        # finds no git there and fails with "error: tool 'git' not found";
+        # so without a Nix git, git is broken in any repo whose .envrc
+        # loads a shell (DeepStar on the rust shell, 2026-10-21). spago,
+        # cabal and stack also shell out to it.
+        mkShell = attrs: pkgs.mkShell (attrs // {
+          packages = (attrs.packages or [ ]) ++ [ pkgs.git ];
+        });
+      in rec {
         # the lingua franca shell — purs pinned to the version the
         # registry package sets in use assume (0.15.15, matching the
         # pre-Nix machines byte-for-byte in behaviour); node included
         # because the JS backend's output runs on it (spago test)
-        purescript = pkgs.mkShell {
+        purescript = mkShell {
           packages = [
             pkgs.purs-bin.purs-0_15_15
             pkgs.spago-unstable
             pkgs.purs-tidy
             pkgs.nodejs_22
-            pkgs.git # spago shells out to it; not assumed on fleet hosts
             pkgs.z3 # mycroft's solver backend; homebrew's copy is only a stray llvm dep
             pkgs.esbuild # spago bundle's bundler
           ];
         };
 
-        rust = pkgs.mkShell {
+        rust = mkShell {
           # cmake: crates that build C++ with it (Diaphus's rusty_link, Ableton Link)
           packages = [ pkgs.rustc pkgs.cargo pkgs.cmake ];
         };
 
-        erlang = pkgs.mkShell {
+        erlang = mkShell {
           packages = [ pkgs.erlang_28 pkgs.rebar3 ];
         };
 
-        node = pkgs.mkShell {
+        node = mkShell {
           packages = [ pkgs.nodejs_22 ];
         };
 
-        go = pkgs.mkShell {
+        go = mkShell {
           packages = [ pkgs.go pkgs.gopls ];
         };
 
@@ -71,7 +81,7 @@
         # can keep their existing build driver, with `system-ghc: true`
         # / `install-ghc: false` in stack.yaml pointing stack at THIS
         # GHC rather than downloading its own.
-        haskell = pkgs.mkShell {
+        haskell = mkShell {
           packages = [
             pkgs.haskell.compiler.ghc98
             pkgs.cabal-install
@@ -80,7 +90,6 @@
             # aarch64-darwin (788 paths fetched, 0 built) — no
             # from-source compile, so it earns its place in the shell.
             pkgs.haskell.packages.ghc98.haskell-language-server
-            pkgs.git # cabal/stack shell out to it
           ];
           # C libraries Haskell packages link against. zlib: upstream
           # purescript's stack.yaml lists it in its nix section; the
@@ -92,7 +101,7 @@
         # purerl-tidal needs BOTH the BEAM toolchain (erlang backend
         # runtime + rebar3) AND the PureScript toolchain (compile +
         # tidy) — it's a PureScript source tree that targets Erlang.
-        purerl = pkgs.mkShell {
+        purerl = mkShell {
           packages = [
             pkgs.erlang_28
             pkgs.rebar3
@@ -100,11 +109,6 @@
             pkgs.spago-unstable
             pkgs.purs-tidy
             pkgs.nodejs_22
-            pkgs.git # spago shells out to it — same reason as the purescript shell.
-                     # The lesson was learned there but never propagated here; it
-                     # surfaced when purerl-tidal's `spago build` failed on a fresh
-                     # box (the mac-mini) with "Failed to find git". A devShell has a
-                     # toolchain contract that only a real build exercises.
           ];
         };
 
