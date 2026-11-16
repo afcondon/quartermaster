@@ -1,5 +1,5 @@
 # Quartermaster's pure core: the runtime/capability model + the verify report.
-# No FFI, no Effect — the part that runs identically on node and backend-go.
+# No FFI, no Effect — the part that runs identically on node and the BEAM.
 # Shares Bosun's deployment vocabulary (atoms, executor, artifact, target) via
 # the path-imported bosun-core.
 package:

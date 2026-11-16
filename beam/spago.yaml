@@ -1,0 +1,48 @@
+# Quartermaster lowered to Erlang by purerl: the shipped runtime since
+# 2026-11-16, replacing the Gnomon (Go) build. The node CLI stays as the
+# development column and the conformance oracle (beam/conformance.sh).
+#
+# Same workspace shape as bosun/beam: the purerl package set, plus the
+# purerl-ports of the packages whose upstream foreign code is JavaScript, and
+# of strings, whose purerl foreign code has two bugs Quartermaster hits.
+package:
+  name: quartermaster-beam
+  dependencies:
+    - prelude
+    - effect
+    - quartermaster-core
+    - quartermaster-cli
+workspace:
+  packageSet:
+    url: https://raw.githubusercontent.com/purerl/package-sets/erl-0.15.3-20220629/packages.json
+  extraPackages:
+    quartermaster-core:
+      path: ../core
+    quartermaster-cli:
+      path: ../cli
+    bosun-core:
+      path: ../../bosun/core
+    bosun-protocol:
+      path: ../../bosun/protocol
+    bosun-adapters:
+      path: ../../bosun/adapters
+    st:
+      path: ../../../purescript-backends/purerl-ports/st
+    foreign-object:
+      path: ../../../purescript-backends/purerl-ports/foreign-object
+    argonaut-core:
+      path: ../../../purescript-backends/purerl-ports/argonaut-core
+    parsing:
+      path: ../../../purescript-backends/purerl-ports/parsing
+    strings:
+      path: ../../../purescript-backends/purerl-ports/strings
+    codec:
+      git: https://github.com/garyb/purescript-codec.git
+      ref: v6.1.0
+      dependencies: [ bifunctors, profunctor ]
+    codec-argonaut:
+      git: https://github.com/garyb/purescript-codec-argonaut.git
+      ref: v10.0.0
+      dependencies: [ argonaut-core, codec, foreign-object, ordered-collections, type-equality, variant, record ]
+  backend:
+    cmd: "node_modules/.bin/purs-backend-erl"

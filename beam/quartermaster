@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# beam/quartermaster: the `quartermaster` command line, on the BEAM. Same
+# arguments as `node cli/run.js`. Exits with the code Exec set (a wrapped
+# command's), else 0; an uncaught error prints and exits 1, as node does.
+# QM_BEAM_EBIN / QM_BEAM_YAMERL let an installed copy point at its own tree.
+#
+# A command Quartermaster streams (exec, apply, build, publish, brew) cannot
+# inherit this process's stdin on the BEAM: erl gives every child a pipe and
+# closes any other descriptor. So a PIPED or redirected stdin is not passed on.
+# QM_STDIN tells the BEAM edge what stdin is, so it can say so instead of
+# dropping the input silently. See cli/src/Quartermaster/CLI/Probe.erl.
+if [ -t 0 ]; then QM_STDIN=tty; elif [ /dev/stdin -ef /dev/null ]; then QM_STDIN=null; else QM_STDIN=piped; fi
+export QM_STDIN
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EBIN="${QM_BEAM_EBIN:-$HERE/ebin}"
+YAMERL="${QM_BEAM_YAMERL:-$HERE/deps/yamerl/ebin}"
+exec erl -noshell -noinput -pa "$EBIN" -pa "$YAMERL" -eval '
+  try ('"'"'quartermaster_cLI_main@ps'"'"':main())() of _ -> ok
+  catch Class:Reason:Stack ->
+    io:format(standard_error, "quartermaster: ~p: ~0p~n~p~n", [Class, Reason, Stack]), halt(1)
+  end,
+  halt(persistent_term:get(quartermaster_exit_code, 0)).' -extra "$@"

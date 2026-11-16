@@ -7,7 +7,7 @@
 # Bosun workspace next door rather than duplicated.
 #
 # Same ethos as Bosun: typed model, pure core, thin effectful edge, develop on
-# node, with purescript-go (backend-go) as a Node-free native column.
+# node, with the BEAM (purerl, beam/) as the Node-free column that ships.
 workspace:
   packageSet:
     registry: 77.13.1

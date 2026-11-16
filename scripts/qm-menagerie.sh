@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # qm-menagerie — the Quartermaster analog of Bosun's Menagerie: behavioural tests
 # that exercise the actual PROVISIONING muscle (host-capability probing) under
-# CONTROLLED, MUTATING conditions, run on BOTH runtimes (node CLI and the Gnomon
-# backend-go native binary) and asserted byte-identical.
+# CONTROLLED, MUTATING conditions, run on BOTH runtimes (node CLI and the BEAM
+# build, beam/quartermaster) and asserted byte-identical.
 #
 # Bosun's Menagerie launched live specimen processes and watched supervision
 # (launch/track/teardown) — the muscle there was os-exec. Quartermaster doesn't
@@ -10,13 +10,13 @@
 # `test -x`, local or ssh-wrapped). So the specimens here are controlled HOST
 # CONDITIONS, and each scenario FLIPS one (a runtime on/off PATH, a cwd that
 # exists or not, a binary that's executable or not) and asserts the verdict moves
-# the right way — identically under node and gnomon.
+# the right way — identically under node and the BEAM.
 #
 # Why this catches what scripts/qm-conformance.sh (the static byte-diff) cannot:
 # conformance runs against fixtures whose host state is whatever the dev box
 # happens to have (python3 present, /srv/* absent), so the ABSENCE path of the
 # probe foreign — `command -v <missing>` exits nonzero → node execSync throws,
-# Go exec returns err, both must land on `RuntimeMissing` — is never exercised on
+# the BEAM's port reports a nonzero status, both must land on `RuntimeMissing` — is never exercised on
 # a controlled positive→negative flip. The Menagerie sets up the absence on
 # purpose. (This is the same reason Bosun's Menagerie caught the setsid/zombie
 # fidelity bugs a byte-diff missed.)
@@ -25,15 +25,15 @@
 # work dir, an empty compose and a specimen registry referencing the stage. No
 # committed machine-specific paths; cleans up on exit. Offline by default —
 # set QM_MEN_REMOTE=1 to add a macmini-hosted specimen that exercises the
-# ssh-wrapped probe through the Go shProbe twin (read-only against the mini).
+# ssh-wrapped probe through the BEAM shProbe twin (read-only against the mini).
 #
-# Usage:  scripts/qm-menagerie.sh           (builds the gnomon binary if stale)
+# Usage:  scripts/qm-menagerie.sh           (rebuilds the BEAM column first)
 #         QM_MEN_REMOTE=1 scripts/qm-menagerie.sh
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 QM="$(cd "$HERE/.." && pwd)"
-G="${BIN:-/tmp/gnomon-quartermaster}"
+B="$QM/beam/quartermaster"
 
 STAGE="$(mktemp -d /tmp/qm-menagerie.XXXXXX)"
 export BIN_DIR="$STAGE/bin" WORK="$STAGE/work"
@@ -78,32 +78,32 @@ EOF
 }
 write_registry
 
-# Build/warm the gnomon binary (the wrapper rebuilds when stale, then runs).
-BIN="$G" "$HERE/gnomon-quartermaster.sh" verify "$STAGE/compose.yml" "$STAGE/registry.json" >/dev/null
+# Build the BEAM column (only what changed is recompiled).
+"$QM/beam/build.sh"
 
-NODE_OUT="$STAGE/node.txt"; GO_OUT="$STAGE/go.txt"
+NODE_OUT="$STAGE/node.txt"; BEAM_OUT="$STAGE/beam.txt"
 fail=0
 
 # Run verify under both runtimes against the current stage state, assert the two
 # outputs are byte-identical (the fidelity invariant).
 run_pair(){
   node "$QM/cli/run.js" verify "$STAGE/compose.yml" "$STAGE/registry.json" >"$NODE_OUT" 2>&1 || true
-  "$G"                  verify "$STAGE/compose.yml" "$STAGE/registry.json" >"$GO_OUT"   2>&1 || true
-  if ! diff -q "$NODE_OUT" "$GO_OUT" >/dev/null; then
-    echo "    ✗ node ≢ gnomon:"; diff "$NODE_OUT" "$GO_OUT" | sed 's/^/        /'; fail=1; return 1
+  "$B"                  verify "$STAGE/compose.yml" "$STAGE/registry.json" >"$BEAM_OUT" 2>&1 || true
+  if ! diff -q "$NODE_OUT" "$BEAM_OUT" >/dev/null; then
+    echo "    ✗ node ≢ beam:"; diff "$NODE_OUT" "$BEAM_OUT" | sed 's/^/        /' || true; fail=1; return 1
   fi
   return 0
 }
 
 # Ground-truth assertion against the (identical) output. Checking node suffices
-# once run_pair has proven go is byte-identical.
+# once run_pair has proven the BEAM is byte-identical.
 want(){    grep -qF -- "$1" "$NODE_OUT" || { echo "    ✗ expected (missing): $1"; fail=1; }; }
 wantnot(){ grep -qF -- "$1" "$NODE_OUT" && { echo "    ✗ unexpected (present): $1"; fail=1; } || true; }
 
 scenario(){ echo; echo "▎ $1"; }
-pass(){ [ "$fail" -eq 0 ] && echo "    ✓ node ≡ gnomon, verdict matches ground truth"; }
+pass(){ [ "$fail" -eq 0 ] && echo "    ✓ node ≡ beam, verdict matches ground truth"; }
 
-echo "qm-menagerie: provisioning muscle, dual-runtime (node ≡ gnomon)"
+echo "qm-menagerie: provisioning muscle, dual-runtime (node ≡ beam)"
 echo "  stage: $STAGE   remote: ${QM_MEN_REMOTE:-0}"
 
 # ── S1: everything present ────────────────────────────────────────────────────
@@ -161,10 +161,10 @@ run_pair && {
 
 # ── S5 (opt-in): remote ssh probe ─────────────────────────────────────────────
 if [ "${QM_MEN_REMOTE:-0}" = "1" ]; then
-  scenario "S5 remote — macmini specimen, ssh-wrapped probe via the Go shProbe twin"
+  scenario "S5 remote — macmini specimen, ssh-wrapped probe via the BEAM shProbe twin"
   run_pair && {
     # node is installed on the mini (found over ssh, envPrefix-aware), but
-    # /srv/archive doesn't exist → CwdMissing. The point is node ≡ gnomon over ssh.
+    # /srv/archive doesn't exist → CwdMissing. The point is node ≡ beam over ssh.
     want "✗ [macmini] remote"
     want "working directory does not exist: /srv/archive"
     pass
@@ -173,7 +173,7 @@ fi
 
 echo
 if [ "$fail" -eq 0 ]; then
-  echo "qm-menagerie: ALL SCENARIOS PASS ✓ — the probe muscle moves correctly, identically on node and gnomon."
+  echo "qm-menagerie: ALL SCENARIOS PASS ✓ — the probe muscle moves correctly, identically on node and the BEAM."
 else
   echo "qm-menagerie: FAILURES above."; exit 1
 fi

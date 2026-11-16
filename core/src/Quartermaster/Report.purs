@@ -1,7 +1,7 @@
 -- | The `quartermaster verify` report renderer (entry-73: a `display` function,
 -- | not a `Show`). Turns the pure verdicts into the human/CI-facing host-
 -- | readiness summary. Total and deterministic, so a `--plan`-style golden diff
--- | and the node≡backend-go conformance both bite on it.
+-- | and the node≡BEAM conformance both bite on it.
 module Quartermaster.Report (renderVerify, renderBuild, renderPublish) where
 
 import Prelude

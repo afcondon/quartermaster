@@ -1,6 +1,6 @@
 # A synthetic Brewfile for the conformance harness: every parser path, no real
 # host's inventory. Run against the live local brew, so most of it reports as
-# drift — the point is that node and gnomon report the SAME drift.
+# drift — the point is that node and the BEAM report the SAME drift.
 tap "homebrew/services"
 
 # a formula with trailing options

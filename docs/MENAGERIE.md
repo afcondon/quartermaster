@@ -14,27 +14,26 @@ diverged from node in ways a byte-diff over static output couldn't see.
 
 Quartermaster doesn't launch anything. Its muscle is the **probe edge**:
 `command -v` / `test -d` / `test -x`, run locally or ssh-wrapped, by the
-`shProbeImpl` foreign (a JS twin for `node cli/run.js`, a Go twin for the native
-`gnomon-quartermaster` binary). So the Menagerie's specimens are controlled
+`shProbeImpl` foreign (a JS twin for `node cli/run.js`, an Erlang twin for the
+BEAM build, `beam/quartermaster`). So the Menagerie's specimens are controlled
 **host conditions**, and each scenario *flips* one — a runtime on/off PATH, a cwd
 that exists or not, a binary that's executable or not — runs `verify` under both
 runtimes, and asserts two things:
 
-1. **fidelity** — the node and gnomon outputs are byte-identical;
+1. **fidelity** — the node and BEAM outputs are byte-identical;
 2. **correctness** — the verdict matches the known ground truth, and *moves* the
    right way when the condition flips.
 
 ## The static byte-diff gate (`make conformance`)
 
 The companion lock is `scripts/qm-conformance.sh`, exposed as **`make
-conformance`**. It rebuilds the Gnomon (backend-go) binary and asserts node ≡
-gnomon output for **every verb** — verify, build, publish, apply, exec, and
-usage. Because it rebuilds the binary as its first step under `set -euo
-pipefail`, a broken Go build (e.g. a verb whose `cli/go/*_foreign.go` twin is
-missing) fails the harness rather than silently passing. **Adding or changing a
-verb requires adding a conformance case** — the same discipline bosun's
-`go-conformance.sh` enforces. Run it with both `spago` and `go` on PATH (see the
-Makefile header for the `.#purescript` + `.#go` invocation).
+conformance`**. It rebuilds both columns and asserts node ≡ BEAM output for
+**every verb**: verify, build, publish, apply, exec, brew and usage. Because it
+rebuilds first under `set -euo pipefail`, a broken purerl build (e.g. a verb
+whose `.erl` twin is missing) fails the harness rather than silently passing.
+**Adding or changing a verb requires adding a conformance case**, the same
+discipline bosun's `beam/conformance.sh` enforces. Run it in the `.#purerl`
+devshell (see the Makefile header).
 
 ## Why the static byte-diff (`qm-conformance.sh`) isn't enough
 
@@ -73,14 +72,15 @@ distinct `ProbeSpec` (see `Quartermaster.Runtime`):
 - **S4 binary not executable** — `chmod -x blob`: the `FileExecutable` probe flips
   to `RuntimeMissing`; the `CommandOnPath` service is unaffected.
 - **S5 remote** *(opt-in, `QM_MEN_REMOTE=1`)* — a macmini specimen exercises the
-  ssh-wrapped, envPrefix-aware probe through the Go shProbe twin (read-only:
+  ssh-wrapped, envPrefix-aware probe through the BEAM shProbe twin (read-only:
   `node` is found over ssh, `/srv/archive` isn't → `CwdMissing`). The point is
-  node ≡ gnomon *over ssh*.
+  node ≡ BEAM *over ssh*. Run it from the MBP: it reaches the Mini as `macmini`,
+  which does not resolve on the Mini itself.
 
 ## Running
 
 ```
-scripts/qm-menagerie.sh                 # offline; builds the gnomon binary if stale
+scripts/qm-menagerie.sh                 # offline; rebuilds the BEAM column first
 QM_MEN_REMOTE=1 scripts/qm-menagerie.sh # add the macmini ssh specimen
 ```
 
@@ -90,5 +90,6 @@ committed machine-specific paths.
 
 ## Status
 
-Dual-runtime DONE (2026-06-19). All five scenarios pass: the probe muscle moves
-correctly and identically on node and gnomon, including over ssh.
+Dual-runtime DONE (2026-06-19, node ≡ Gnomon). Moved to node ≡ BEAM on
+2026-11-16, when the BEAM build replaced the Go one: S1–S4 pass on the Mini; S5
+(over ssh) is still to run from the MBP.

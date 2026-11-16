@@ -4,7 +4,7 @@
 -- | `ProbeSpec`): a toolchain is "binary on PATH", a prebuilt artifact is "this
 -- | file exists + is executable", a containerised service is "a container engine
 -- | is present". Derived purely from a service's `Executor` (the launch command
--- | head), so the whole derivation rides backend-go like Bosun's pure core.
+-- | head), so the whole derivation rides purerl like Bosun's pure core.
 module Quartermaster.Runtime
   ( Runtime(..)
   , runtimeLabel

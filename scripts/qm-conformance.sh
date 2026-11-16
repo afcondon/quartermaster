@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
-# qm-conformance — assert the node CLI and the Gnomon (backend-go native) binary
-# produce BYTE-IDENTICAL output for EVERY Quartermaster verb, over a spread of
-# Bosun fixtures. The regression lock for the dual-runtime guarantee (the analog
-# of bosun/scripts/go-conformance.sh + menagerie-conf.sh).
+# qm-conformance — assert the node CLI and the BEAM build (purerl, beam/) produce
+# BYTE-IDENTICAL output for EVERY Quartermaster verb, over a spread of Bosun
+# fixtures. The BEAM build is the shipped runtime since 2026-11-16; node is the
+# development column and the oracle. (Until then the second column was the Gnomon
+# Go binary, retired with the Go backend's demotion.)
 #
 # The coverage discipline (spec: docs/spec-conformance-every-verb.md): every verb
 # the CLI dispatches gets a case, each a PURE / plan-only invocation (no outward
 # side effects — the applyScript discipline means every verb has a pure plan to
-# compare). If a whole verb's Go column is missing its FFI twins the link fails,
-# the binary doesn't build — and because the harness rebuilds the binary as step 1
-# under `set -euo pipefail`, a broken build is a conformance FAILURE, not a
+# compare). If a verb's BEAM column is missing a foreign twin, purerl refuses to
+# build — and because the harness rebuilds both columns as step 1 under
+# `set -euo pipefail`, a broken build is a conformance FAILURE, not a
 # silently-skipped verb. Covers:
 #
 #   verify  — 3 fixtures (all-Process, all-Container, mixed mbp+macmini ssh probe)
@@ -25,43 +26,41 @@
 #   usage   — no-args and unknown-verb (the same pure `usage` value both emit)
 #
 # Output ordering is made deterministic in the pure core (Verify.requirementsOf
-# sorts by host,service), so a passing diff proves the Go column matches node
+# sorts by host,service), so a passing diff proves the BEAM column matches node
 # exactly — not merely "same set, different order".
 #
 # ADDING OR CHANGING A VERB REQUIRES A CONFORMANCE CASE HERE — the same discipline
-# bosun's go-conformance.sh enforces.
+# bosun's beam/conformance.sh enforces.
 #
-# Usage:  scripts/qm-conformance.sh           (builds the gnomon binary if stale)
+# Usage:  scripts/qm-conformance.sh           (rebuilds both columns first)
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 QM="$(cd "$HERE/.." && pwd)"
 FIX="$QM/../bosun/fixtures"
-G="${BIN:-/tmp/gnomon-quartermaster}"
+B="$QM/beam/quartermaster"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-# Build the native binary if stale (the wrapper rebuilds, then runs); the warm-up
-# run's output is discarded — we only want the binary cached at $G for the diffs.
-# Under `set -e` a failed Go build (e.g. a missing FFI twin) aborts the whole
-# harness here: a build failure IS a conformance failure.
-BIN="$G" "$HERE/gnomon-quartermaster.sh" \
-  verify "$FIX/menagerie/compose.yml" "$FIX/menagerie/registry.json" >/dev/null
+# Build both columns. Under `set -e` a failed build aborts the harness here: a
+# build failure IS a conformance failure.
+( cd "$QM" && spago build >/dev/null 2>&1 ) || { ( cd "$QM" && spago build 2>&1 | tail -20 ); echo "node build failed"; exit 1; }
+"$QM/beam/build.sh"
 
 fail=0
 
-# assert_raw <label> -- <full argv…> — run the SAME argv through node and gnomon
+# assert_raw <label> -- <full argv…> — run the SAME argv through node and the BEAM
 # and diff. The general form: any verb, any argument shape (targets, `--` command
 # tails, bare flags), not only the <compose> <registry> pair.
 assert_raw(){
   local label="$1"; shift
   [ "${1:-}" = "--" ] && shift
   node "$QM/cli/run.js" "$@" >"$TMP/node.txt" 2>&1 || true
-  "$G"                  "$@" >"$TMP/gnom.txt" 2>&1 || true
-  if diff -q "$TMP/node.txt" "$TMP/gnom.txt" >/dev/null; then
+  "$B"                  "$@" >"$TMP/beam.txt" 2>&1 || true
+  if diff -q "$TMP/node.txt" "$TMP/beam.txt" >/dev/null; then
     echo "  ✓ $label"
   else
-    echo "  ✗ $label — node ≢ gnomon:"; diff "$TMP/node.txt" "$TMP/gnom.txt" | sed 's/^/      /'
+    echo "  ✗ $label — node ≢ beam:"; diff "$TMP/node.txt" "$TMP/beam.txt" | sed 's/^/      /' || true
     fail=1
   fi
 }
@@ -73,7 +72,7 @@ assert_identical(){
   assert_raw "$label" -- "$verb" "$@" "$dir/compose.yml" "$dir/registry.json"
 }
 
-echo "qm-conformance: node CLI ≡ gnomon (backend-go) binary"
+echo "qm-conformance: node CLI ≡ BEAM (purerl) build"
 echo
 
 echo "verify:"
@@ -113,7 +112,7 @@ assert_raw "unknown verb" -- frobnicate --nonsense
 
 echo
 if [ "$fail" -eq 0 ]; then
-  echo "qm-conformance: ALL IDENTICAL ✓ — Quartermaster runs Node-free, byte-for-byte."
+  echo "qm-conformance: ALL IDENTICAL ✓ — node and the BEAM agree byte for byte."
 else
   echo "qm-conformance: DIVERGENCE — see diffs above."; exit 1
 fi

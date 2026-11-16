@@ -34,8 +34,9 @@ it). **Bosun never invokes the build toolchain.**
   for a remote target, in the target's workdir, with its `envPrefix`), shipping a
   pinned image to the registry so every host runs identical bytes. `--dry-run`
   prints the plan only; `--no-push` builds without the (outward) push. Proven live
-  in both runtime lanes: node and the gnomon binary built+pushed the polyglot
-  `edge` image to the mini's `localhost:5001` registry, same digest.
+  2026-07 on node and on the Gnomon (Go) binary: both built and
+  pushed the polyglot `edge` image to the mini's `localhost:5001` registry, same
+  digest. Not yet run live on the BEAM build.
 
 - **`quartermaster publish` — DONE (live).** The CDN-ship half (decision D-G2,
   the thing Bosun's `# MANUAL: static-CDN publish` advisory now points at). For
@@ -67,16 +68,25 @@ it). **Bosun never invokes the build toolchain.**
   quartermaster brew check <host> <Brewfile>
   ```
 
-- **Native backend-go binary — DONE (Node-free).** Exactly like `gnomon-bosun`:
-  `scripts/gnomon-quartermaster.sh` transpiles the *real* `Quartermaster.CLI.Main`
-  to a single native Go binary (via backend-go) — no Node at runtime. It reads
-  real `compose.yml` via `gopkg.in/yaml.v3` and runs probes through `/bin/sh`
-  exactly like the node edge (so ssh-wrapped, envPrefix-aware remote verify works
-  identically). `scripts/qm-conformance.sh` asserts the node CLI and the gnomon
-  binary are **byte-identical** across both verbs and all host shapes (Process,
-  Container, and mixed mbp+macmini over ssh). Output is sorted in the pure core
+- **The BEAM build — DONE, shipped (2026-11-16).** `beam/` lowers the *real*
+  `Quartermaster.CLI.Main` to Erlang with purerl, the same way `bosun/beam` does
+  for Bosun, and `make install` ships it. No Node at runtime; Erlang/OTP 27 or
+  later, which Nix provides on substrate hosts. `.beam` files are the same on
+  every architecture, so one installed directory serves every host.
+  `scripts/qm-conformance.sh` asserts the node CLI and the BEAM build are
+  **byte-identical** across every verb and host shape, and `qm-menagerie.sh`
+  across flipped host conditions. Output is sorted in the pure core
   (`Verify.requirementsOf` by host,service) so a passing diff means true
   equivalence, not just the same set in a different order.
+
+  This replaced a Gnomon (PureScript → Go) binary, shipped from 2026-09 until the
+  Go backend stopped being an intended runtime. The one behaviour the BEAM
+  cannot copy from node: a command Quartermaster streams (`exec`, `apply`,
+  `build`, `publish`, `brew`) cannot inherit a *piped* stdin, so it reads
+  `/dev/null` and Quartermaster says so on stderr. A terminal is passed through.
+
+  Next: a hermetic Nix package (a flake output), which needs Bosun's packages
+  and `purerl-ports` as flake inputs rather than sibling paths.
 
 - **Next:** close the build-once-ship loop end-to-end (flip a deployment's
   build-from-source service to the QM-built pinned image so Bosun ships the built
@@ -113,13 +123,14 @@ spago build            # compile
 npm install            # js-yaml, for running the node CLI
 node cli/run.js verify <compose> <registry>
 
-# …or Node-free, via the backend-go native binary (rebuilds when sources change):
-scripts/gnomon-quartermaster.sh verify <compose> <registry>
-scripts/qm-conformance.sh        # assert node ≡ gnomon, byte-for-byte (static fixtures)
+# …or on the BEAM, as shipped (build first; only what changed is recompiled):
+beam/build.sh
+beam/quartermaster verify <compose> <registry>
+scripts/qm-conformance.sh        # assert node ≡ BEAM, byte-for-byte (static fixtures)
 scripts/qm-menagerie.sh          # behavioural dual-runtime tests (flip host conditions)
 ```
 
-Two dual-runtime test harnesses, both run node CLI vs the gnomon binary:
+Two dual-runtime test harnesses, both run the node CLI against the BEAM build:
 
 - **`qm-conformance.sh`** — static byte-diff over committed fixtures (both verbs,
   all host shapes). Proves the output is identical for a *fixed* host state.
@@ -131,9 +142,9 @@ Two dual-runtime test harnesses, both run node CLI vs the gnomon binary:
   the static fixtures never hit, the same way Bosun's Menagerie exercised real
   teardown.
 
-The CLI edge has two foreigns — `IO` (read YAML/JSON, argv) and `Probe` (run a
-synchronous `/bin/sh` check). Each has a JS twin (for `node cli/run.js`) and a Go
-twin in `cli/go/` (for the native binary), the same app-owned-foreign pattern
-Bosun uses. The shared argonaut/foreign-object decode twins come from the sibling
-Bosun repo's `conformance/go` (one source of truth until a per-backend
-runtime-libraries repo exists).
+The CLI edge is six foreign modules (`IO`, `Probe`, `Apply`, `Build`, `Exec`,
+`Publish`) under `cli/src/Quartermaster/CLI/`, each with a JS twin (for
+`node cli/run.js`) and an Erlang twin beside it (for the BEAM), the same
+app-owned-foreign pattern Bosun uses. `Probe.erl` also holds the two shell
+primitives the other Erlang twins share. Packages the purerl package set lacks
+or gets wrong come from `purescript-backends/purerl-ports` by path.

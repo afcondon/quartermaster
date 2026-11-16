@@ -3,7 +3,7 @@
 -- | given the effectful PROBE outcomes the CLI edge gathers — decide the per-
 -- | service VERDICT (ready, or a list of typed findings). This is the
 -- | host-readiness half of the Bosun⇄Quartermaster seam: Bosun consumes "host
--- | ready"; this computes it. Rides backend-go like Bosun's pure core.
+-- | ready"; this computes it. Rides purerl like Bosun's pure core.
 module Quartermaster.Verify
   ( Requirement
   , requirementsOf

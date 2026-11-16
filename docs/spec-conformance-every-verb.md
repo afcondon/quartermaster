@@ -1,5 +1,10 @@
 # Spec: the dual-runtime conformance harness must cover EVERY verb
 
+> **2026-11-16:** the requirement stands, but the second column is now the BEAM
+> build (`beam/`), not the Gnomon binary, which was retired with the Go backend.
+> Read "Gnomon" below as "the shipped column"; `scripts/qm-conformance.sh`
+> implements this spec against the BEAM.
+
 **Status:** requirement, ready to build. Raised 2026-07-24 after the Go (Gnomon)
 binary was found to have been unbuildable since the `apply` verb landed
 (`5499eee`) — `apply` and `publish` shipped Node-only, their Go FFI twins never

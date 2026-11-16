@@ -91,7 +91,7 @@ buildShellLine push step
 -- | (the context is relative to it), with `envPrefix` prepended (a remote ssh
 -- | shell needs `PATH` for `docker`), ssh-wrapped when the host is remote —
 -- | the same shape Bosun's `applyScript` renders for container ops, kept here in
--- | the pure core so the node and backend-go builds emit byte-identical strings.
+-- | the pure core so the node and BEAM builds emit byte-identical strings.
 buildInvocation :: Target -> Boolean -> BuildStep -> String
 buildInvocation target push step =
   wrap target (cdWorkdir target <> envExports target.envPrefix <> buildShellLine push step)
