@@ -27,9 +27,18 @@
 # set QM_MEN_REMOTE=1 to add a macmini-hosted specimen that exercises the
 # ssh-wrapped probe through the BEAM shProbe twin (read-only against the mini).
 #
+# The remote specimen's host is QM_MEN_REMOTE_HOST: a target this machine can
+# reach by ssh, with node on it and no /srv/archive. It has no default, so
+# that no machine's name is committed here. (Until 2026-11-16 the registry
+# row named a placeholder host while the expectation named a real one, so
+# the scenario could not pass.)
+#
 # Usage:  scripts/qm-menagerie.sh           (rebuilds the BEAM column first)
-#         QM_MEN_REMOTE=1 scripts/qm-menagerie.sh
+#         QM_MEN_REMOTE=1 QM_MEN_REMOTE_HOST=<target> scripts/qm-menagerie.sh
 set -euo pipefail
+if [ "${QM_MEN_REMOTE:-0}" = "1" ] && [ -z "${QM_MEN_REMOTE_HOST:-}" ]; then
+  echo "qm-menagerie: QM_MEN_REMOTE=1 needs QM_MEN_REMOTE_HOST=<target>"; exit 2
+fi
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 QM="$(cd "$HERE/.." && pwd)"
@@ -62,7 +71,7 @@ write_registry(){
   local remote_row=""
   if [ "${QM_MEN_REMOTE:-0}" = "1" ]; then
     remote_row=',
-    {"id":6,"role":"api","projectName":"remote","projectId":"remote","port":8195,"host":"examplehost","startCommand":"cd /srv/archive && node server.js --port 8195","url":"http://examplehost:8195"}'
+    {"id":6,"role":"api","projectName":"remote","projectId":"remote","port":8195,"host":"'"$QM_MEN_REMOTE_HOST"'","startCommand":"cd /srv/archive && node server.js --port 8195","url":"http://'"$QM_MEN_REMOTE_HOST"':8195"}'
   fi
   cat >"$STAGE/registry.json" <<EOF
 {
@@ -161,11 +170,11 @@ run_pair && {
 
 # ── S5 (opt-in): remote ssh probe ─────────────────────────────────────────────
 if [ "${QM_MEN_REMOTE:-0}" = "1" ]; then
-  scenario "S5 remote — macmini specimen, ssh-wrapped probe via the BEAM shProbe twin"
+  scenario "S5 remote — a specimen on $QM_MEN_REMOTE_HOST, ssh-wrapped probe via the BEAM shProbe twin"
   run_pair && {
     # node is installed on the mini (found over ssh, envPrefix-aware), but
     # /srv/archive doesn't exist → CwdMissing. The point is node ≡ beam over ssh.
-    want "✗ [macmini] remote"
+    want "✗ [$QM_MEN_REMOTE_HOST] remote"
     want "working directory does not exist: /srv/archive"
     pass
   }
