@@ -1440,6 +1440,9 @@
       "foreign-object": {
         "path": "../../../purescript-backends/purerl-ports/foreign-object"
       },
+      "hawser": {
+        "path": "../../../purescript-hylograph-libs/purescript-hawser"
+      },
       "parsing": {
         "path": "../../../purescript-backends/purerl-ports/parsing"
       },
@@ -1545,10 +1548,15 @@
       "type": "local",
       "path": "../../bosun/protocol",
       "dependencies": [
+        "argonaut-core",
         "codec-argonaut",
+        "foreign-object",
+        "hawser",
         "maybe",
         "prelude",
-        "profunctor"
+        "profunctor",
+        "strings",
+        "tuples"
       ]
     },
     "codec": {
@@ -1749,6 +1757,23 @@
         "tailrec",
         "tuples",
         "unfoldable"
+      ]
+    },
+    "hawser": {
+      "type": "local",
+      "path": "../../../purescript-hylograph-libs/purescript-hawser",
+      "dependencies": [
+        "argonaut-core",
+        "arrays",
+        "either",
+        "foldable-traversable",
+        "foreign-object",
+        "integers",
+        "maybe",
+        "numbers",
+        "prelude",
+        "strings",
+        "tuples"
       ]
     },
     "identity": {

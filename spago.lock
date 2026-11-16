@@ -711,6 +711,9 @@
       },
       "bosun-protocol": {
         "path": "../bosun/protocol"
+      },
+      "hawser": {
+        "path": "../../purescript-hylograph-libs/purescript-hawser"
       }
     }
   },
@@ -793,6 +796,7 @@
         "codec-argonaut",
         "either",
         "foldable-traversable",
+        "integers",
         "maybe",
         "ordered-collections",
         "prelude",
@@ -805,10 +809,15 @@
       "type": "local",
       "path": "../bosun/protocol",
       "dependencies": [
+        "argonaut-core",
         "codec-argonaut",
+        "foreign-object",
+        "hawser",
         "maybe",
         "prelude",
-        "profunctor"
+        "profunctor",
+        "strings",
+        "tuples"
       ]
     },
     "codec": {
@@ -1029,6 +1038,23 @@
         "tailrec",
         "tuples",
         "unfoldable"
+      ]
+    },
+    "hawser": {
+      "type": "local",
+      "path": "../../purescript-hylograph-libs/purescript-hawser",
+      "dependencies": [
+        "argonaut-core",
+        "arrays",
+        "either",
+        "foldable-traversable",
+        "foreign-object",
+        "integers",
+        "maybe",
+        "numbers",
+        "prelude",
+        "strings",
+        "tuples"
       ]
     },
     "identity": {

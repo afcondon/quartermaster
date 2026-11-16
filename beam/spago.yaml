@@ -24,6 +24,10 @@ workspace:
       path: ../../bosun/core
     bosun-protocol:
       path: ../../bosun/protocol
+    # bosun-protocol describes /state with Hawser (2026-11-16); path packages
+    # are not registered transitively, so it is declared here too.
+    hawser:
+      path: ../../../purescript-hylograph-libs/purescript-hawser
     bosun-adapters:
       path: ../../bosun/adapters
     st:
