@@ -56,7 +56,9 @@ it). **Bosun never invokes the build toolchain.**
   ```
 
 - **`quartermaster brew check` — DONE (local + remote).** Homebrew is *tracked,
-  not managed*. Nix owns the toolchain par; what's left in brew on a Mac is mostly
+  not managed*. Nix owns the toolchain par (the 20 pins of `parPins` in
+  `core/src/Quartermaster/Apply.purs`, which since 2026-11-17 include `lean` and
+  `tlaplus` on every development machine); what's left in brew on a Mac is mostly
   casks (drivers, GUI apps, fonts), which must not install unattended because a
   driver cask can restart `coreaudiod` under a running rig. A host's Brewfile is
   a declaration, and this reports drift against the host's own

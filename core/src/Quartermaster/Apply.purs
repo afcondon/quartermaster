@@ -99,13 +99,15 @@ type ApplySpec =
 -- | single `bash` invocation, as blackstar-par.sh does per section).
 type ApplyStep = { phase :: String, commands :: Array String }
 
--- | The 18 `quartermaster#packages` pins that are the toolchain floor (the
+-- | The 20 `quartermaster#packages` pins that are the toolchain floor (the
 -- | par-spec's profile pins minus nix-direnv, which comes from nixpkgs).
+-- | `lean` and `tlaplus` joined on 2026-11-10: the proof assistant and the
+-- | model checker that specifications are checked with.
 parPins :: Array String
 parPins =
-  [ "cabal", "cargo", "erlang", "esbuild", "ffmpeg", "ghc", "go", "node"
-  , "purescript-language-server", "purs", "purs-tidy", "python", "rebar3"
-  , "rust-analyzer", "rustc", "spago", "stack", "tools"
+  [ "cabal", "cargo", "erlang", "esbuild", "ffmpeg", "ghc", "go", "lean"
+  , "node", "purescript-language-server", "purs", "purs-tidy", "python"
+  , "rebar3", "rust-analyzer", "rustc", "spago", "stack", "tlaplus", "tools"
   ]
 
 -- | nix-direnv is nixpkgs-sourced (not an overlay pin), so it rides the
@@ -122,7 +124,7 @@ sourceDaemon = ". /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh"
 -- | (`$installed`, captured once per phase — see `applyPlan`). Grepping a
 -- | here-string rather than piping `nix profile list` per pin avoids the
 -- | broken-pipe SIGPIPE noise `grep -q` triggers by closing the pipe early, and
--- | is 19× fewer nix invocations. Skip if already pinned, else install.
+-- | is one nix invocation in place of one per pin. Skip if already pinned, else install.
 installPin :: ApplySpec -> String -> String
 installPin spec p =
   "grep -q 'packages\\." <> spec.system <> "\\." <> p <> "$' <<<\"$installed\""
@@ -185,6 +187,10 @@ verifyCommands spec =
     , ver "python" "python3" "--version"
     , ver "rustc" "rustc" "--version"
     , ver "ghc" "ghc" "--version"
+    , ver "lean" "lean" "--version"
+    -- TLC has no version flag that exits zero (`-h` prints the version and
+    -- exits 1), so this probe asks only whether the launcher is there.
+    , "echo '  tlc: '$([ -x " <> b <> "/tlc ] && echo present || echo MISSING)"
     ]
 
 -- | Derive the four-phase apply plan from a spec. Pure — the faithful

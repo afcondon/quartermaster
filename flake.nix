@@ -112,6 +112,18 @@
           ];
         };
 
+        # the formal-methods shell: a model checker and a proof assistant,
+        # the two guarantors behind conformance (docs kb:
+        # plans/conformance-and-subsidiarity.md, 2026-11-10). TLC explores
+        # every ordering of a specification; Lean proves a property for
+        # every input. nixpkgs' tlaplus wraps its own JRE, so no Java pin.
+        # lean4 is pinned here in place of elan: elan downloads whatever a
+        # project's lean-toolchain file names, which is per-machine drift
+        # by another route.
+        formal = mkShell {
+          packages = [ pkgs.tlaplus pkgs.lean4 ];
+        };
+
         default = purescript;
       });
 
@@ -164,6 +176,14 @@
         # large closure accepted: unlocks removing ~170 brew library
         # formulae that only existed to satisfy ffmpeg.
         ffmpeg = pkgs.ffmpeg;
+
+        # formal methods (see the `formal` shell): `tlc`, `tla-sany`,
+        # `pcal` from tlaplus; `lean`, `lake` from lean4. Both substitute
+        # from the cache on aarch64-darwin. Measured 2026-11-17: lean4 is
+        # 2.3 GiB itself, 3.5 GiB with its closure; tlaplus 208 MiB with its
+        # JRE. Pinned on every development machine (Andrew, 2026-11-17).
+        tlaplus = pkgs.tlaplus;
+        lean = pkgs.lean4;
 
         # the everyday CLI kit — one buildEnv so `nix profile install
         # .#tools` (review-gated, not done here) yields one entry.
