@@ -58,7 +58,7 @@ as :: String -> Array String -> Package
 as name path = Package { name, path }
 
 -- overlay / version-pinned / nested (name ≠ path)
-purs   = as "purs"   [ "purs-bin", "purs-0_15_15" ]
+purs   = as "purs"   [ "purs-bin", "purs-0_15_17" ]
 spago  = as "spago"  [ "spago-unstable" ]
 node   = as "node"   [ "nodejs_22" ]
 erlang = as "erlang" [ "erlang_28" ]
@@ -118,7 +118,7 @@ purescriptShell = Shell
   { name: "purescript"
   , tools: [ purs, spago, pursTidy, node, git ]
   , cLibs: []
-  , why: "The lingua franca shell (also the default): purs pinned to 0.15.15, spago, tidy, node."
+  , why: "The lingua franca shell (also the default): purs pinned to 0.15.17, spago, tidy, node."
   }
 
 rustShell :: Shell

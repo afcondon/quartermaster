@@ -43,13 +43,14 @@
           packages = (attrs.packages or [ ]) ++ [ pkgs.git ];
         });
       in rec {
-        # the lingua franca shell — purs pinned to the version the
-        # registry package sets in use assume (0.15.15, matching the
-        # pre-Nix machines byte-for-byte in behaviour); node included
+        # the lingua franca shell — purs pinned to one version for the
+        # whole fleet: 0.15.17 since 2026-11-22 (was 0.15.15, the version
+        # the pre-Nix machines had; 0.15.15 fails with an internal error
+        # on a registry package we now use, layered-layout); node included
         # because the JS backend's output runs on it (spago test)
         purescript = mkShell {
           packages = [
-            pkgs.purs-bin.purs-0_15_15
+            pkgs.purs-bin.purs-0_15_17
             pkgs.spago-unstable
             pkgs.purs-tidy
             pkgs.nodejs_22
@@ -105,7 +106,7 @@
           packages = [
             pkgs.erlang_28
             pkgs.rebar3
-            pkgs.purs-bin.purs-0_15_15
+            pkgs.purs-bin.purs-0_15_17
             pkgs.spago-unstable
             pkgs.purs-tidy
             pkgs.nodejs_22
@@ -131,7 +132,7 @@
       # fleet can `nix build .#tools` for a single provisioned profile
       # rather than depending on `nix develop` shells alone.
       packages = forAllSystems (pkgs: {
-        purs = pkgs.purs-bin.purs-0_15_15;
+        purs = pkgs.purs-bin.purs-0_15_17;
         spago = pkgs.spago-unstable;
         purs-tidy = pkgs.purs-tidy;
         esbuild = pkgs.esbuild;
