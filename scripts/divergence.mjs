@@ -198,8 +198,9 @@ export function parseYaml(src) {
 // Matched against remote URLs. Extra patterns (an address, say) can be given
 // in DIVERGENCE_MACHINES as "Name=pat1,pat2;Name2=pat3" rather than committed.
 const KNOWN_MACHINES = [
-  { name: "Mini", patterns: ["mac-mini", "/users/andrew/"] },
-  { name: "MBP", patterns: ["macbook", "/users/afc/"] },
+  // ssh aliases count too: the MBP reaches the Mini as `macmini:`
+  { name: "Mini", patterns: ["mac-mini", "macmini", "/users/andrew/"] },
+  { name: "MBP", patterns: ["macbook", "mbp:", "/users/afc/"] },
   { name: "BlackStar", patterns: ["blackstar"] },
 ];
 for (const spec of (process.env.DIVERGENCE_MACHINES ?? "").split(";").filter(Boolean)) {
@@ -217,7 +218,7 @@ function classifyRemote(url, self) {
   const isPath = u.startsWith("/") || u.startsWith("file:") || u.startsWith(".") || u.startsWith("~");
   for (const m of KNOWN_MACHINES) {
     if (m.patterns.some((p) => u.includes(p))) {
-      if (m.name === self) return { kind: "local", offMachine: false };
+      if (m.name.toLowerCase() === String(self).toLowerCase()) return { kind: "local", offMachine: false };
       // a bare path naming the other machine's home is still a path on this one
       if (isPath) return { kind: "local", offMachine: false };
       return { kind: `machine:${m.name}`, offMachine: m.name !== "MBP" && m.name !== "Mini" };
@@ -692,7 +693,8 @@ async function compare(snaps) {
       if (missingHere.length) notes.push(`**Not buildable on ${s.machine}**: ${missingHere.length} missing here (${missingHere.join(", ")}).`);
       if (noRepoHere.length) notes.push(`In no repository: ${noRepoHere.join(", ")}.`);
       if (dirtyHere.length) notes.push(`Built against uncommitted changes here: ${dirtyHere.join(", ")}.`);
-      if (absentThere.length) cannot.push(`\`${w.path}\` (${s.machine}→${other.machine}: ${absentThere.length} of ${deps.length} absent)`);
+      if (absentThere.length && otherW) cannot.push(`\`${w.path}\` (${s.machine}→${other.machine}: ${absentThere.length} of ${deps.length} absent)`);
+      if (other && !otherW) notes.unshift(`(The workspace itself is not on ${other.machine}.)`);
       if (!notes.length || (notes.length === 1 && other && !absentThere.length && !differsThere.length && !unknownThere.length)) {
         fine.push(`\`${w.path}\` (${deps.length})`); continue;
       }
@@ -736,8 +738,15 @@ async function compare(snaps) {
   sec5.push("");
 
   H.push(`- **Packages**: ${pkgRows.size} published; flagged (numbered-unpublished or long description): ${flaggedPkgs.length ? flaggedPkgs.map((n) => `\`${n}\``).join(", ") : "none"}.`);
-  if (snaps.length === 2) H.push(`- **Workspaces the other machine cannot build**: ${cannot.length}${cannot.length ? " — " + cannot.join("; ") : ""}.`);
+  if (snaps.length === 2) H.push(`- **Workspaces on both machines that one of them cannot build**: ${cannot.length}${cannot.length ? " — " + cannot.join("; ") : ""}. ` +
+    `(Workspaces present on only one machine are in section 4, marked, not counted here.)`);
   H.push(`- **Pins**: ${pins.size} distinct pins of our own libraries; ${stalePins.length} behind the registry's newest.`);
+  const unfetched = snaps.filter((s) => !s.fetched).map((s) => s.machine);
+  if (unfetched.length) {
+    H.unshift(`> **Not fetched: ${unfetched.join(", ")}.** Ahead/behind GitHub for ${unfetched.length > 1 ? "these machines" : "that machine"} is as of each repo's last fetch, ` +
+      `so "behind" is mostly invisible. For a current report, take the snapshot with \`--fetch\`.`, "");
+    process.stderr.write(`divergence: snapshot(s) not fetched: ${unfetched.join(", ")}; remote counts are stale. Re-run with --fetch for current ones.\n`);
+  }
   push("## Headline", "", ...H, "");
   push(...sec1, ...sec2, ...sec3, ...sec4, ...sec5);
   return L.join("\n");
@@ -779,6 +788,9 @@ if (cmd === "snapshot") {
   divergence snapshot [--fetch] [--root DIR] [--machine NAME] > snap.json
   divergence compare <snap.json> [<other-snap.json>] > report.md
   divergence report [--peer other-snap.json] [--fetch] > report.md
+
+  --fetch is off by default (the report is read-only), but without it the
+  remote counts are as of each repo's last fetch. Use it for a current report.
 `);
   process.exit(2);
 }
