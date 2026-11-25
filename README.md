@@ -107,6 +107,23 @@ default context) and a `cli-plugins` symlink (so `docker compose` still resolves
 That directory is currently **manual host prep**; creating/validating it is a
 natural future `quartermaster` host-provisioning check.
 
+### The divergence report (`scripts/divergence.mjs`)
+
+What differs between the machines' working copies, GitHub and the PureScript
+registry: requirements 1–5 of
+`docs/kb/plans/cross-machine-consistency-requirements.md`. Read-only: it never
+merges, commits or checks out, and `git fetch` runs only with `--fetch`.
+Plain node, no dependencies, so it runs straight after a `git pull`.
+
+```
+node scripts/divergence.mjs snapshot [--fetch] > ~/briefs/divergence-<machine>.json   # each machine, offline
+node scripts/divergence.mjs compare mini.json mbp.json > report.md                    # one machine, any time
+node scripts/divergence.mjs report --peer mbp.json > report.md                        # snapshot here + compare
+```
+
+Placed here rather than in Brunel because Quartermaster owns what a host *has*;
+Brunel reads the report.
+
 ## Architecture
 
 Same ethos as Bosun — typed model, pure core, thin effectful edge, PureScript.
