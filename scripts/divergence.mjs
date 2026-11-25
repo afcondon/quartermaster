@@ -772,6 +772,14 @@ const defaultRoot = () => process.env.AFC_WORK || join(homedir(), "work", "afc-w
 const load = (f) => {
   const s = JSON.parse(readFileSync(f, "utf8"));
   if (s.schema !== SCHEMA) throw new Error(`${f}: snapshot schema ${s.schema}, expected ${SCHEMA}`);
+  // Classify remotes with this copy's rules, so an older snapshot is read the
+  // same way as a new one. (Per-branch unpushed counts were computed when the
+  // snapshot was taken and can't be redone here.)
+  for (const r of s.repos) {
+    if (!r.remotes) continue;
+    r.remotes = r.remotes.map((x) => ({ ...x, ...classifyRemote(x.url, s.machine) }));
+    r.offMachineRemotes = r.remotes.filter((x) => x.offMachine).map((x) => x.name);
+  }
   return s;
 };
 
